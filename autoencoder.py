@@ -16,6 +16,7 @@ from sklearn import cluster
 from sklearn import decomposition
 from skimage.metrics import structural_similarity as ssim
 import sewar
+import random
 
 block_size = 18
 block_per_image = 324
@@ -64,11 +65,26 @@ def gen_blur(images):
     blur_imgs = np.array(blur_imgs)
     return blur_imgs
 
-def gen_noise(images, noise_factor=0.5):
-    noise = np.random.normal(loc=100.0, scale=10.0, size=images.shape)
-    noise = noise.astype('uint8')
-    noise_images = images + (noise*noise_factor).astype('uint8')
-    return noise_images
+def noisy(image, prob=0.05):
+    output = np.zeros(image.shape,np.uint8)
+    thres = 1 - prob 
+    for i in range(image.shape[0]):
+        for j in range(image.shape[1]):
+            rdn = random.random()
+            if rdn < prob:
+                output[i][j] = 0
+            elif rdn > thres:
+                output[i][j] = 255
+            else:
+                output[i][j] = image[i][j]
+    return output
+
+def gen_noise(images, prob=0.05):
+  noise = []
+  for img in images:
+    noise.append(noisy(img, prob))
+  noise = np.array(noise).astype('uint8')
+  return noise
 
 
 def divide_img(img, block_size=18, num_block=18, overlap=4):
