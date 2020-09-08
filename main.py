@@ -64,8 +64,15 @@ print("reconstruct images")
 test_images_clear, test_images_blur = gen_train_set(
     validation_images, val_blur_imgs, block_size=block_size)
 
-z, y, latent= encoder.predict(test_images_blur)
-decoded_imgs = decoder.predict(z)
+batch = 10000
+z, y, latent = encoder.predict(test_images_blur[:batch])
+for i in range(batch, len(test_images_blur), batch):
+    y = np.concatenate([y, encoder.predict(test_images_blur[i: i+batch])[1]], axis=0)
+    z = np.concatenate([z, encoder.predict(test_images_blur[i: i+batch])[0]], axis=0)
+
+decoded_imgs = decoder.predict(z[:batch])
+for i in range(batch, len(z), batch):
+    decoded_imgs = np.concatenate([decoded_imgs, decoder.predict(z[:batch])], axis=0)
 
 recons_images = reconstruct_image(z, y,
                                   decoders=decoders,

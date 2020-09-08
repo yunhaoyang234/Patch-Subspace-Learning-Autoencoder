@@ -147,47 +147,45 @@ def gen_train_set(clear_imgs, blur_imgs, block_size):
     return np.array(clear_images)/255, np.array(blur_images)/255
 
 
-latent_dim = 48
+latent_dim = 60
 regularizer = keras.regularizers.l1_l2()
 
 def build_encoder(latent_dim, shape, num_cluster=2):
     encoder_inputs = keras.Input(shape=shape)
-    x = layers.Conv2D(16, 3, activation="relu", strides=2, padding="same", 
+    x = layers.Conv2D(16, 3, activation="relu", strides=1, padding="same", 
                     kernel_regularizer=regularizer)(encoder_inputs)
-    x = layers.Conv2D(32, 3, activation="relu", strides=1, padding="same",
+    x = layers.Conv2D(32, 3, activation="relu", strides=2, padding="same",
                     kernel_regularizer=regularizer)(x)
-    x = layers.Conv2D(64, 3, activation="relu", strides=2, padding="same", 
+    x = layers.Conv2D(48, 3, activation="relu", strides=1, padding="same", 
+                    kernel_regularizer=regularizer)(x)
+    x = layers.Conv2D(72, 3, activation="relu", strides=2, padding="same", 
                     kernel_regularizer=regularizer)(x)
     x = layers.Conv2D(128, 3, activation="relu", strides=1, padding="same", 
                     kernel_regularizer=regularizer)(x)
     x = tf.keras.layers.BatchNormalization()(x)
+
     x = layers.Flatten()(x)
-    x = layers.Dense(60, activation="relu", 
+    x = layers.Dense(96, activation="relu", 
                    kernel_regularizer=regularizer)(x)
     x = layers.Dense(latent_dim, activation="relu", 
                    kernel_regularizer=regularizer)(x)
-
-    initializer = tf.keras.initializers.RandomNormal(1, 0.1)
-    y = layers.Dense(num_cluster, activation="relu",
-                   kernel_initializer=initializer, 
-                   trainable = False)(x)
-    y = layers.Softmax()(y)
-    latent = layers.Dense(8, activation="linear", trainable = False)(x)
-    encoder = keras.Model(encoder_inputs, [x, y, latent], name="encoder")
+    encoder = keras.Model(encoder_inputs, x, name="encoder")
     return encoder
 
 def build_decoder(latent_dim, shape, name):
     latent_inputs = keras.Input(shape=(latent_dim,))
-    x = layers.Dense(shape[0] * shape[1] * 2, activation="relu",
+    x = layers.Dense(shape[0] * shape[1] * 4, activation="relu",
                    kernel_regularizer=regularizer)(latent_inputs)
-    x = layers.Reshape((shape[0]//6, shape[1]//6, 72))(x)
+    x = layers.Reshape((shape[0]//6, shape[1]//6, 144))(x)
     x = layers.Conv2DTranspose(128, 3, activation="relu", strides=1, 
                              kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(64, 3, activation="relu", strides=1, 
+    x = layers.Conv2DTranspose(72, 3, activation="relu", strides=2,
                              kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2, 
+    x = layers.Conv2DTranspose(48, 3, activation="relu", strides=1, 
                              kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(16, 3, activation="relu", strides=3, 
+    x = layers.Conv2DTranspose(32, 3, activation="relu", strides=3, 
+                             kernel_regularizer=regularizer, padding="same")(x)
+    x = layers.Conv2DTranspose(16, 3, activation="relu", strides=1, 
                              kernel_regularizer=regularizer, padding="same")(x)
     decoder_outputs = layers.Conv2DTranspose(shape[2], 3, 
                                            activation="sigmoid", 
@@ -294,20 +292,20 @@ class AutoEncoder(keras.Model):
                 tf.keras.losses.MSE(test, reconstruction))
             reconstruction_loss *= shape[0] * shape[1]
 
-            leng = 0
-            for k in range(len(y)):
-                leng += 1
-            soft_cut_loss = 0
-            for i in range(8):
-                soft_cut_loss += soft_n_cut_loss(latent[:,i], y, self.num_cluster, leng, 1)
+            # leng = 0
+            # for k in range(len(y)):
+            #     leng += 1
+            # soft_cut_loss = 0
+            # for i in range(8):
+            #     soft_cut_loss += soft_n_cut_loss(latent[:,i], y, self.num_cluster, leng, 1)
             
-            total_loss = reconstruction_loss + kl_loss + soft_cut_loss
+            total_loss = reconstruction_loss + kl_loss# + soft_cut_loss
         
         grads = tape.gradient(total_loss, self.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
         return {
             "reconstruction_loss": reconstruction_loss,
-            "soft_n_cut_loss": soft_cut_loss,
+            #"soft_n_cut_loss": soft_cut_loss,
         }
 
 class AutoEncoder_P(keras.Model):
