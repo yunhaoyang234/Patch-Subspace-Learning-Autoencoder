@@ -408,7 +408,6 @@ def reconstruct_image(z, centroids, decoders,
 test_images_clear, test_images_blur = gen_train_set(
     validation_images, val_blur_imgs, block_size=block_size)
 
-z = encoder.predict(test_images_blur)
 batch = 10000
 z = encoder.predict(test_images_blur[:batch])
 for i in range(batch, len(test_images_blur), batch):

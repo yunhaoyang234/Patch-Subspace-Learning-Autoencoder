@@ -72,7 +72,7 @@ for i in range(batch, len(test_images_blur), batch):
 
 decoded_imgs = decoder.predict(z[:batch])
 for i in range(batch, len(z), batch):
-    decoded_imgs = np.concatenate([decoded_imgs, decoder.predict(z[:batch])], axis=0)
+    decoded_imgs = np.concatenate([decoded_imgs, decoder.predict(z[i:i+batch])], axis=0)
 
 recons_images = reconstruct_image(z, y,
                                   decoders=decoders,

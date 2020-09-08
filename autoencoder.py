@@ -388,7 +388,9 @@ def reconstruct_image(z, y, decoders,
                       blocks_per_image=256, img_shape=(256,256), block_size=16):
     recons_images = []
     labels = cluster_latent(y)
-    decoded_images = decode_images(z, labels, decoders)
+    decoded_images = decode_images(z[:batch], labels[:batch], decoders)
+    for i in range(batch, len(test_images_blur), batch):
+      decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
     for i in range(0, len(decoded_images), blocks_per_image):
         blocks = decoded_images[i: i+blocks_per_image]
         image = merge_img(blocks, img_shape[0], img_shape[1], block_size)
