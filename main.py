@@ -88,7 +88,7 @@ comp_images = (comp_images*255).astype('uint8')
 
 test_images = []
 for i in range(0, len(test_images_clear), block_per_image):
-    test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size))
+    test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size, overlap=overlap))
 test_images = (np.array(test_images)*255).astype('uint8')
 print(comp_images.shape)
 

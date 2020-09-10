@@ -21,141 +21,39 @@ from scipy.stats import norm
 import tensorflow as tf
 import cv2
 from keras.layers import Input, Dense, Lambda
+from autoencoder import *
 
 cwd = ''
 
 """## Load Dataset"""
 
-def load_images(file_path):
-  raw_image_dataset = tf.data.TFRecordDataset(file_path)
-
-  # Create a dictionary describing the features.
-  image_feature_description = {
-      'shape': tf.io.FixedLenFeature([3], tf.int64),
-      'data': tf.io.FixedLenFeature([], tf.string),
-      'label': tf.io.FixedLenFeature([1], tf.int64)
-  }
-
-  def _parse_image_function(example_proto):
-    return tf.io.parse_single_example(example_proto, image_feature_description)
-  parsed_image_dataset = raw_image_dataset.map(_parse_image_function)
-  
-  images = []
-  for image_features in parsed_image_dataset:
-    image_raw = image_features['data'].numpy()
-    shape = image_features['shape'].numpy()
-    img = tf.io.decode_raw(image_raw, tf.uint8)
-    img = tf.reshape(img, shape).numpy()
-    images.append(img)
-  return np.array(images)
-
 validation_images = load_images(cwd + 'validation-r08-s-0000-of-0040.tfrecords')
 images = load_images(cwd + 'train-r08-s-0000-of-0120.tfrecords')
 
+# data = read_images(cwd + '/canon')
+
 """## Generate Blur Images"""
-
-def gen_blur(images):
-  topleft = 64
-  size = 64
-  blur_imgs = []
-  images_copy = np.copy(images)
-  for img in images_copy:
-    b_img = img[topleft:topleft+size, topleft:topleft+size]
-    b_img = cv2.blur(b_img,(100,100))
-    for i in range(size):
-      for j in range(size):
-        img[i+topleft][j+topleft] = b_img[i][j]
-    blur_imgs.append(img)
-  blur_imgs = np.array(blur_imgs)
-  return blur_imgs
-
-import random
-def noisy(image, prob=0.05):
-    output = np.zeros(image.shape,np.uint8)
-    thres = 1 - prob 
-    for i in range(image.shape[0]):
-        for j in range(image.shape[1]):
-            rdn = random.random()
-            if rdn < prob:
-                output[i][j] = 0
-            elif rdn > thres:
-                output[i][j] = 255
-            else:
-                output[i][j] = image[i][j]
-    return output
-
-def gen_noise(images, prob=0.05):
-  noise = []
-  for img in images:
-    noise.append(noisy(img, prob))
-  noise = np.array(noise).astype('uint8')
-  return noise
 
 blur_imgs = gen_noise(images)
 val_blur_imgs = gen_noise(validation_images)
 
 """## Divide and Merge Images"""
 
-block_size = 18
-block_per_image = 324
+block_size = 18 #28
+block_per_image = 324 #484
+overlap = 4 #8
 num_cluster = 2
 shape = (block_size, block_size, 3)
-
-def divide_img(img, block_size=18, num_block=18, overlap=4):
-  height = len(img)
-  width = len(img[0])
-  if not (block_size*num_block - (num_block - 1)*overlap == height):
-    print('Block size mismatch', 
-          block_size*num_block - (num_block - 1)*overlap, height)
-    return None
-  size = block_size - overlap
-  blocks = np.array([img[i:i+block_size, j:j+block_size] 
-                     for j in range(0,width - overlap,size) 
-                     for i in range(0,height - overlap,size)])
-  return blocks
-
-def merge_img(blocks, width=256, height=256, block_size=18, overlap=4):
-  num_block_per_row = (width - overlap)//(block_size - overlap)
-  num_block_per_col = (height - overlap)//(block_size - overlap)
-  def get_row_block(row):
-    row_block = blocks[row]
-    for j in range(1, num_block_per_row):
-      cur_row_block = row_block[:, :len(row_block[0]) - overlap]
-      block1 = blocks[row+j*num_block_per_col]
-      cur_block = block1[:, overlap:]
-      lapping = row_block[:, len(row_block[0]) - overlap:]
-      lapping1 = block1[:, :overlap]
-      for k in range(0, overlap):
-        lapping[:, k] *= 1 - (k+1)/(overlap+1)
-        lapping1[:, k] *= (k+1)/(overlap+1)
-      lap = lapping + lapping1
-      row_block = np.concatenate([cur_row_block, lap, cur_block], axis=1)
-    return row_block
-
-  img = get_row_block(0)
-  for i in range(1, num_block_per_col):
-    cur_block = img[:len(img)-overlap]
-    cur_row = get_row_block(i)
-    lapping = img[len(img)-overlap:]
-    lapping1 = cur_row[:overlap]
-    cur_row = cur_row[overlap:]
-    for k in range(0, overlap):
-        lapping[k,:] *= 1 - (k+1)/(overlap+1)
-        lapping1[k,:] *= (k+1)/(overlap+1)
-    
-    lap = lapping + lapping1
-    img = np.concatenate([cur_block, lap, cur_row], axis=0)
-  return img
 
 def gen_train_set(clear_imgs, blur_imgs, block_size):
   blur_images = []
   clear_images = []
 
   for i in range(len(clear_imgs)):
-    blocks = divide_img(clear_imgs[i], block_size)
+    blocks = divide_img(clear_imgs[i], block_size, overlap=overlap)
     for b in blocks:
       clear_images.append(b)
-    blur_blocks = divide_img(blur_imgs[i], block_size)
+    blur_blocks = divide_img(blur_imgs[i], block_size, overlap=overlap)
     for bb in blur_blocks:
       blur_images.append(bb)
   return np.array(clear_images)/255, np.array(blur_images)/255
@@ -428,11 +326,12 @@ clus, label_clus = clustering(blur_images, num_cluster)
 def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
   decoders = []
   for i in range(len(clus)):
-    decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
-    model_i = VAE_P(encoder, decoder_i)
-    model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
-    model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
-    decoders.append(decoder_i)
+    for i in range(len(clus)):
+      decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
+      model_i = VAE_P(encoder, decoder_i)
+      model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
+      model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
+      decoders.append(decoder_i)
   return decoders
 
 decoders = train_decoders(clus, label_clus, encoder, 100)
@@ -471,7 +370,7 @@ def reconstruct_image(z, y, decoders,
     decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
   for i in range(0, len(decoded_images), blocks_per_image):
     blocks = decoded_images[i: i+blocks_per_image]
-    image = merge_img(blocks, img_shape[0], img_shape[1], block_size)
+    image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
     recons_images.append(image)
   return np.array(recons_images)
 
@@ -489,7 +388,7 @@ comp_images = (comp_images*255).astype('uint8')
 
 test_images = []
 for i in range(0, len(test_images_clear), block_per_image):
-  test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size))
+  test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size, overlap=overlap))
 test_images = (np.array(test_images)*255).astype('uint8')
 
 '''

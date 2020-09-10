@@ -17,11 +17,15 @@ from sklearn import decomposition
 from skimage.metrics import structural_similarity as ssim
 import sewar
 import random
+import os
+import glob
 
 block_size = 18
 block_per_image = 324
+overlap = 4
 num_cluster = 2
 shape = (block_size, block_size, 3)
+batch=10000
 
 def load_images(file_path):
     raw_image_dataset = tf.data.TFRecordDataset(file_path)
@@ -45,6 +49,15 @@ def load_images(file_path):
         img = tf.reshape(img, shape).numpy()
         images.append(img)
     return np.array(images)
+
+def read_images(img_dir):
+    data_path = os.path.join(img_dir,'*g')
+    files = glob.glob(data_path) 
+    data = []
+    for f1 in files: 
+        img = cv2.imread(f1) 
+        data.append(img)
+    return np.array(data)
 
 def imshow(img):
     cv2.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
@@ -138,10 +151,10 @@ def gen_train_set(clear_imgs, blur_imgs, block_size):
     clear_images = []
 
     for i in range(len(clear_imgs)):
-        blocks = divide_img(clear_imgs[i], block_size)
+        blocks = divide_img(clear_imgs[i], block_size, overlap=overlap)
         for b in blocks:
             clear_images.append(b)
-        blur_blocks = divide_img(blur_imgs[i], block_size)
+        blur_blocks = divide_img(blur_imgs[i], block_size, overlap=overlap)
         for bb in blur_blocks:
             blur_images.append(bb)
     return np.array(clear_images)/255, np.array(blur_images)/255
@@ -339,7 +352,6 @@ class AutoEncoder_P(keras.Model):
         }
 
 def clustering(blur_images, clear_images, encoder, num_clusters=2):
-    batch = len(blur_images)//10
     x, y, latent = encoder(blur_images[:batch])
     pca =  decomposition.PCA(n_components=2)
     for i in range(batch, len(blur_images), batch):
@@ -393,7 +405,7 @@ def reconstruct_image(z, y, decoders,
       decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
     for i in range(0, len(decoded_images), blocks_per_image):
         blocks = decoded_images[i: i+blocks_per_image]
-        image = merge_img(blocks, img_shape[0], img_shape[1], block_size)
+        image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
         recons_images.append(image)
     return np.array(recons_images)
 
@@ -402,8 +414,8 @@ def tune_parameters(param, blur_images, clear_images, validation_images, val_blu
     for i in param['init_lr']:
         for d in param['decay_steps']:
             for epoch in param['epochs']:
-                for batch in param['batch_size']:
-                    print('init_lr', i, 'decay_steps', d, 'epochs', epoch, 'batch_size', batch)
+                for batch_size in param['batch_size']:
+                    print('init_lr', i, 'decay_steps', d, 'epochs', epoch, 'batch_size', batch_size)
                     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
                         initial_learning_rate=i,
                         decay_steps=d,
@@ -413,12 +425,12 @@ def tune_parameters(param, blur_images, clear_images, validation_images, val_blu
                     decoder = build_decoder(latent_dim, shape,"decoder")
                     model = AutoEncoder(encoder, decoder, 1, num_cluster)
                     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
-                    model.fit((blur_images,clear_images), epochs=epoch, batch_size=batch)
+                    model.fit((blur_images,clear_images), epochs=epoch, batch_size=batch_size)
 
                     clus, label_clus = clustering(blur_images, clear_images, encoder, num_cluster)
-                    if len(clus[0]) < batch or len(clus[1]) < batch:
-                        batch = min(len(clus[0]), len(clus[1])) // 2 + 1
-                    decoders = train_decoders(clus, label_clus, encoder, epoch, batch_size=batch, lr=lr_schedule)
+                    if len(clus[0]) < batch_size or len(clus[1]) < batch_size:
+                        batch_size = min(len(clus[0]), len(clus[1])) // 2 + 1
+                    decoders = train_decoders(clus, label_clus, encoder, epoch, batch_size=batch_size, lr=lr_schedule)
 
                     test_images_clear, test_images_blur = gen_train_set(
                         validation_images, val_blur_imgs, block_size=block_size)
@@ -431,7 +443,7 @@ def tune_parameters(param, blur_images, clear_images, validation_images, val_blu
                     recons_images = (recons_images*255).astype('uint8')
                     test_images = []
                     for i in range(0, len(test_images_clear), block_per_image):
-                        test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size))
+                        test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size, overlap=overlap))
                     test_images = (np.array(test_images)*255).astype('uint8')
 
                     recons_psnr = []
