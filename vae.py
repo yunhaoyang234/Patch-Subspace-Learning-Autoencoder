@@ -104,13 +104,12 @@ def build_encoder(latent_dim, shape, num_cluster):
                    kernel_initializer=initializer, 
                    trainable = False)(x)
   y = layers.Softmax()(y)
-  latent = layers.Dense(8, activation="linear", trainable = False)(x)
 
   # Sampling
   z_mean = layers.Dense(latent_dim, name="z_mean")(x)
   z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
   z = Sampling()([z_mean, z_log_var])
-  encoder = keras.Model(encoder_inputs, [x, y, latent, z], name="encoder")
+  encoder = keras.Model(encoder_inputs, [x, y, z_mean, z_log_var, z], name="encoder")
   return encoder
 
 def build_decoder(latent_dim, shape, name):
@@ -219,33 +218,34 @@ class VAE(keras.Model):
         shape = (len(data[0]), len(data[0][0]))
 
         with tf.GradientTape() as tape:
-            x, y, latent, z = self.encoder(data)
+            x, y, z_mean, z_log_var, z = self.encoder(data)
             
             # reconstruct images
             reconstruction = self.decoder(z)
             # calculate loss
-            kl = tf.keras.losses.KLDivergence(
-                reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE)
-            kl_loss = kl(test, reconstruction)
+            kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
+            kl_loss = tf.reduce_mean(kl_loss)
+            kl_loss *= -0.5
 
             reconstruction_loss = tf.reduce_mean(
                 tf.keras.losses.MSE(test, reconstruction))
             reconstruction_loss *= shape[0] * shape[1]
 
-            # leng = 0
-            # for k in range(len(y)):
-            #   leng += 1
-            # soft_cut_loss = 0
-            # for i in range(8):
-            #   soft_cut_loss += soft_n_cut_loss(latent[:,i], y, self.num_cluster, leng, 1)
+            leng = 0
+            for k in range(len(y)):
+              leng += 1
+            soft_cut_loss = 0
+            for i in range(latent_dim):
+              soft_cut_loss += soft_n_cut_loss(x[:,i], y, self.num_cluster, leng, 1)
             
-            total_loss = reconstruction_loss + kl_loss# + 0.1*soft_cut_loss
+            total_loss = reconstruction_loss + kl_loss + 0.1*soft_cut_loss
         
         grads = tape.gradient(total_loss, self.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
         return {
             "reconstruction_loss": reconstruction_loss,
-            #"soft_n_cut_loss": soft_cut_loss,
+            "kl_loss": kl_loss,
+            "soft_n_cut_loss": soft_cut_loss,
         }
 
 class VAE_P(keras.Model):
@@ -260,25 +260,28 @@ class VAE_P(keras.Model):
         shape = (len(data[0]), len(data[0][0]))
         
         with tf.GradientTape() as tape:
-            x, y, latent, z = self.encoder(data)
+            x, y, z_mean, z_log_var, z = self.encoder(data)
             # reconstruct images
             reconstruction = self.trained_decoder(z)
             # calculate loss
             reconstruction_loss = tf.reduce_mean(
                 tf.keras.losses.MSE(test, reconstruction))
             reconstruction_loss *= shape[0] * shape[1]
-            kl = tf.keras.losses.KLDivergence(
-                reduction=tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE)
-            kl_loss = kl(test, reconstruction)
+            kl_loss = 1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
+            kl_loss = tf.reduce_mean(kl_loss)
+            kl_loss *= -0.5
             total_loss = reconstruction_loss + kl_loss
         
         grads = tape.gradient(total_loss, self.trained_decoder.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trained_decoder.trainable_weights))
         return {
-            "loss": total_loss,
+            "reconstruction_loss": reconstruction_loss,
+            "kl_loss": kl_loss,
         }
 
 """## Train the VAE"""
+
+epoch = 100
 
 lr_schedule = keras.optimizers.schedules.ExponentialDecay(
     initial_learning_rate=0.001,
@@ -290,25 +293,25 @@ encoder = build_encoder(latent_dim, shape, num_cluster)
 decoder = build_decoder(latent_dim, shape,"decoder")
 model = VAE(encoder, decoder, num_cluster)
 model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
-model.fit((blur_images,clear_images), epochs=100, batch_size=128)
+model.fit((blur_images,clear_images), epochs=epoch, batch_size=128)
 
 # clustering
 from sklearn import decomposition
 
 def clustering(blur_images, num_clusters=2):
   batch = 10000
-  x, y, latent, z = encoder(blur_images[:batch])
+  x, y, z_mean, z_log_var, z = encoder(blur_images[:batch])
   pca =  decomposition.PCA(n_components=2)
   for i in range(batch, len(blur_images), batch):
     y = np.concatenate([y, encoder(blur_images[i: i+batch])[1]], axis=0)
     x = np.concatenate([x, encoder(blur_images[i: i+batch])[0]], axis=0)
   labels = np.array(cluster_latent(y))
 
-  x = pca.fit_transform(x)
-  colors = ['red', 'blue', 'green', 'yellow', 'black', 'purple']
-  for n in range(num_clusters):
-    plt.scatter(x[labels==n, 0], x[labels==n, 1], s=5, c=colors[n], label ='Cluster'+str(n))
-  plt.show()
+  # x = pca.fit_transform(x)
+  # colors = ['red', 'blue', 'green', 'yellow', 'black', 'purple']
+  # for n in range(num_clusters):
+  #   plt.scatter(x[labels==n, 0], x[labels==n, 1], s=5, c=colors[n], label ='Cluster'+str(n))
+  # plt.show()
 
   clusters = gen_clusters(blur_images, labels, num_clusters)
   label_clusters = gen_clusters(clear_images, labels, num_clusters)
@@ -334,7 +337,7 @@ def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_
       decoders.append(decoder_i)
   return decoders
 
-decoders = train_decoders(clus, label_clus, encoder, 100)
+decoders = train_decoders(clus, label_clus, encoder, epoch)
 
 """## Evaluation"""
 
@@ -342,10 +345,10 @@ test_images_clear, test_images_blur = gen_train_set(
     validation_images, val_blur_imgs, block_size=block_size)
 
 batch = 10000
-x, y, latent, z = encoder.predict(test_images_blur[:batch])
+x, y, z_mean, z_log_var, z = encoder.predict(test_images_blur[:batch])
 for i in range(batch, len(test_images_blur), batch):
   y = np.concatenate([y, encoder.predict(test_images_blur[i: i+batch])[1]], axis=0)
-  z = np.concatenate([z, encoder.predict(test_images_blur[i: i+batch])[3]], axis=0)
+  z = np.concatenate([z, encoder.predict(test_images_blur[i: i+batch])[4]], axis=0)
 
 decoded_imgs = decoder.predict(z[:batch])
 for i in range(batch, len(z), batch):
