@@ -355,7 +355,7 @@ class AutoEncoder_P(keras.Model):
 
 def clustering(blur_images, clear_images, encoder, num_clusters=2):
     x, y, latent = encoder(blur_images[:batch])
-    pca =  decomposition.PCA(n_components=2)
+    # pca =  decomposition.PCA(n_components=2)
     for i in range(batch, len(blur_images), batch):
         y = np.concatenate([y, encoder(blur_images[i: i+batch])[1]], axis=0)
         x = np.concatenate([x, encoder(blur_images[i: i+batch])[0]], axis=0)

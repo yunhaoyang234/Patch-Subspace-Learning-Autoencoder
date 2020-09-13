@@ -135,75 +135,6 @@ def build_decoder(latent_dim, shape, name):
   decoder = keras.Model(latent_inputs, decoder_outputs, name=name)
   return decoder
 
-"""## Clustering"""
-
-from typing import List
-import numpy as np
-import scipy as sp
-from sklearn import cluster
-
-def cluster_latent(y):
-  y = np.array(y)
-  labels = []
-  for i in y:
-    labels.append(np.argmax(i))
-  return labels
-
-def gen_clusters(imgs, labels, num_cluster):
-  clusters = {}
-  for label in range(num_cluster):
-    clusters[label] = []
-  for i in range(len(labels)):
-    clusters[labels[i]].append(imgs[i])
-  return clusters
-
-def edge_weights(flatten_image, rows , cols, std_intensity=3, std_position=1, radius=5):
-	A = outer_product(flatten_image, tf.ones_like(flatten_image))
-	A_T = tf.transpose(A)
-	intensity_weight = tf.exp(-1*tf.square((tf.divide((A - A_T), std_intensity))))
-
-	xx, yy = tf.meshgrid(tf.range(rows), tf.range(cols))
-	xx = tf.reshape(xx, (rows*cols,))
-	yy = tf.reshape(yy, (rows*cols,))
-	A_x = outer_product(xx, tf.ones_like(xx))
-	A_y = outer_product(yy, tf.ones_like(yy))
-
-	xi_xj = A_x - tf.transpose(A_x)
-	yi_yj = A_y - tf.transpose(A_y)
-
-	sq_distance_matrix = tf.square(xi_xj) + tf.square(yi_yj)
-
-	dist_weight = tf.exp(-tf.divide(sq_distance_matrix,tf.square(std_position)))
-	dist_weight = tf.cast(dist_weight, tf.float32)
-	weight = tf.multiply(intensity_weight, dist_weight)
-	return weight
-
-def outer_product(v1,v2):
-	v1 = tf.reshape(v1, (-1,))
-	v2 = tf.reshape(v2, (-1,))
-	v1 = tf.expand_dims((v1), axis=0)
-	v2 = tf.expand_dims((v2), axis=0)
-	return tf.matmul(tf.transpose(v1),(v2))
-
-def numerator(k_class_prob,weights):
-  k_class_prob = tf.reshape(k_class_prob, (-1,))
-  return tf.reduce_sum(tf.multiply(weights,outer_product(k_class_prob,k_class_prob)))
-
-def denominator(k_class_prob,weights):	
-  k_class_prob = tf.cast(k_class_prob, tf.float32)
-  k_class_prob = tf.reshape(k_class_prob, (-1,))	
-  deno = tf.reduce_sum(tf.multiply(weights,outer_product(k_class_prob,tf.ones(tf.shape(k_class_prob)))))
-  if deno == 0.0:
-    return 0.1
-  return deno
-
-def soft_n_cut_loss(flatten_image, prob, k, rows, cols):
-	soft_n_cut_loss = k
-	weights = edge_weights(flatten_image, rows ,cols)
-	for t in range(k): 
-		soft_n_cut_loss = soft_n_cut_loss - (numerator(prob[:,t],weights)/denominator(prob[:,t],weights))
-	return soft_n_cut_loss
-
 """## Define the VAE as a `Model` with a custom `train_step`"""
 
 class VAE(keras.Model):
@@ -299,45 +230,9 @@ model.fit((blur_images,clear_images), epochs=epoch, batch_size=128)
 # clustering
 from sklearn import decomposition
 
-def clustering(blur_images, num_clusters=2):
-  batch = 10000
-  x, y, z_mean, z_log_var, z = encoder(blur_images[:batch])
-  pca =  decomposition.PCA(n_components=2)
-  for i in range(batch, len(blur_images), batch):
-    y = np.concatenate([y, encoder(blur_images[i: i+batch])[1]], axis=0)
-    x = np.concatenate([x, encoder(blur_images[i: i+batch])[0]], axis=0)
-  labels = np.array(cluster_latent(y))
-
-  # x = pca.fit_transform(x)
-  # colors = ['red', 'blue', 'green', 'yellow', 'black', 'purple']
-  # for n in range(num_clusters):
-  #   plt.scatter(x[labels==n, 0], x[labels==n, 1], s=5, c=colors[n], label ='Cluster'+str(n))
-  # plt.show()
-
-  clusters = gen_clusters(blur_images, labels, num_clusters)
-  label_clusters = gen_clusters(clear_images, labels, num_clusters)
-  clus = []
-  for c in range(num_clusters):
-    clus.append(np.array(clusters[c]))
-  label_clus = []
-  for c in range(num_clusters):
-    label_clus.append(np.array(label_clusters[c]))
-  return np.array(clus), np.array(label_clus)
-
 clus, label_clus = clustering(blur_images, num_cluster)
 
 # train decoders
-def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
-  decoders = []
-  for i in range(len(clus)):
-    for i in range(len(clus)):
-      decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
-      model_i = VAE_P(encoder, decoder_i)
-      model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
-      model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
-      decoders.append(decoder_i)
-  return decoders
-
 decoders = train_decoders(clus, label_clus, encoder, epoch)
 
 """## Evaluation"""
@@ -354,29 +249,6 @@ for i in range(batch, len(test_images_blur), batch):
 decoded_imgs = decoder.predict(z[:batch])
 for i in range(batch, len(z), batch):
   decoded_imgs = np.concatenate([decoded_imgs, decoder.predict(z[i:i+batch])], axis=0)
-
-def decode_images(z, labels, decoders):
-  decoded_images = []
-  decode = []
-  for decoder in decoders:
-    decode.append(decoder.predict(z))
-  for num in range(len(z)):
-    decode_img = decode[labels[num]][num]
-    decoded_images.append(decode_img)
-  return np.array(decoded_images)
-
-def reconstruct_image(z, y, decoders, 
-                      blocks_per_image=256, img_shape=(256,256), block_size=16):
-  recons_images = []
-  labels = cluster_latent(y)
-  decoded_images = decode_images(z[:batch], labels[:batch], decoders)
-  for i in range(batch, len(test_images_blur), batch):
-    decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
-  for i in range(0, len(decoded_images), blocks_per_image):
-    blocks = decoded_images[i: i+blocks_per_image]
-    image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
-    recons_images.append(image)
-  return np.array(recons_images)
 
 """## Metrics"""
 recons_images = reconstruct_image(z, y,
@@ -431,8 +303,6 @@ print(cnt/len(test_images))
 '''
 UQI
 '''
-
-import sewar
 cnt = 0
 recons_se = []
 comp_se = []
