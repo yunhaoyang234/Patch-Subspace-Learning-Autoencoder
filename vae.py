@@ -10,17 +10,12 @@ Original file is located at
 """
 
 # Commented out IPython magic to ensure Python compatibility.
+import tensorflow as tf
+device_name = tf.test.gpu_device_name()
+if device_name != '/device:GPU:0':
+    raise SystemError('GPU device not found')
+print('Found GPU at: {}'.format(device_name))
 
-import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-import math
-import matplotlib.pyplot as plt
-from scipy.stats import norm
-import tensorflow as tf
-import cv2
-from keras.layers import Input, Dense, Lambda
 from autoencoder import *
 
 cwd = ''
@@ -45,19 +40,6 @@ val_blur_imgs = gen_noise(validation_images)
 # overlap = 4 #8
 # num_cluster = 2
 # shape = (block_size, block_size, 3)
-
-def gen_train_set(clear_imgs, blur_imgs, block_size):
-  blur_images = []
-  clear_images = []
-
-  for i in range(len(clear_imgs)):
-    blocks = divide_img(clear_imgs[i], block_size, overlap=overlap)
-    for b in blocks:
-      clear_images.append(b)
-    blur_blocks = divide_img(blur_imgs[i], block_size, overlap=overlap)
-    for bb in blur_blocks:
-      blur_images.append(bb)
-  return np.array(clear_images)/255, np.array(blur_images)/255
 
 clear_images, blur_images = gen_train_set(images, blur_imgs, block_size=block_size)
 
@@ -228,11 +210,37 @@ model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
 model.fit((blur_images,clear_images), epochs=epoch, batch_size=128)
 
 # clustering
-from sklearn import decomposition
+def clustering(blur_images, num_clusters=2):
+  batch = 10000
+  x, y, z_mean, z_log_var, z = encoder(blur_images[:batch])
+  for i in range(batch, len(blur_images), batch):
+    y = np.concatenate([y, encoder(blur_images[i: i+batch])[1]], axis=0)
+    x = np.concatenate([x, encoder(blur_images[i: i+batch])[0]], axis=0)
+  labels = np.array(cluster_latent(y))
+
+  clusters = gen_clusters(blur_images, labels, num_clusters)
+  label_clusters = gen_clusters(clear_images, labels, num_clusters)
+  clus = []
+  for c in range(num_clusters):
+    clus.append(np.array(clusters[c]))
+  label_clus = []
+  for c in range(num_clusters):
+    label_clus.append(np.array(label_clusters[c]))
+  return np.array(clus), np.array(label_clus)
 
 clus, label_clus = clustering(blur_images, num_cluster)
 
 # train decoders
+def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
+  decoders = []
+  for i in range(len(clus)):
+    decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
+    model_i = VAE_P(encoder, decoder_i)
+    model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
+    model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
+    decoders.append(decoder_i)
+  return decoders
+
 decoders = train_decoders(clus, label_clus, encoder, epoch)
 
 """## Evaluation"""

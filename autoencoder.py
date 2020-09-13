@@ -403,7 +403,7 @@ def reconstruct_image(z, y, decoders,
     recons_images = []
     labels = cluster_latent(y)
     decoded_images = decode_images(z[:batch], labels[:batch], decoders)
-    for i in range(batch, len(test_images_blur), batch):
+    for i in range(batch, len(z), batch):
       decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
     for i in range(0, len(decoded_images), blocks_per_image):
         blocks = decoded_images[i: i+blocks_per_image]
