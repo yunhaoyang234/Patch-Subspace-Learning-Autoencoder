@@ -20,9 +20,11 @@ import random
 import os
 import glob
 
+img_shape = (256, 256) #(448, 448)
 block_size = 18
-block_per_image = 324
-overlap = 4
+num_block = 18 #22
+block_per_image = num_block * num_block #484
+overlap = 4 # 8
 num_cluster = 2
 shape = (block_size, block_size, 3)
 batch=10000
@@ -151,10 +153,10 @@ def gen_train_set(clear_imgs, blur_imgs, block_size):
     clear_images = []
 
     for i in range(len(clear_imgs)):
-        blocks = divide_img(clear_imgs[i], block_size, overlap=overlap)
+        blocks = divide_img(clear_imgs[i], block_size, num_block, overlap=overlap)
         for b in blocks:
             clear_images.append(b)
-        blur_blocks = divide_img(blur_imgs[i], block_size, overlap=overlap)
+        blur_blocks = divide_img(blur_imgs[i], block_size, num_block, overlap=overlap)
         for bb in blur_blocks:
             blur_images.append(bb)
     return np.array(clear_images)/255, np.array(blur_images)/255
@@ -443,7 +445,7 @@ def tune_parameters(param, blur_images, clear_images, validation_images, val_blu
                     recons_images = (recons_images*255).astype('uint8')
                     test_images = []
                     for i in range(0, len(test_images_clear), block_per_image):
-                        test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size, overlap=overlap))
+                        test_images.append(merge_img(test_images_clear[i:i+block_per_image],img_shape[0],img_shape[1], block_size, overlap=overlap))
                     test_images = (np.array(test_images)*255).astype('uint8')
 
                     recons_psnr = []

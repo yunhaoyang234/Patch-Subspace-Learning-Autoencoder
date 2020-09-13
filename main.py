@@ -77,18 +77,20 @@ for i in range(batch, len(z), batch):
 recons_images = reconstruct_image(z, y,
                                   decoders=decoders,
                                   blocks_per_image=block_per_image,
+                                  img_shape=img_shape,
                                   block_size=block_size)
 recons_images = (recons_images*255).astype('uint8')
 print(recons_images.shape)
 
 comp_images = reconstruct_image(z, y, [decoder]*num_cluster,
                                 blocks_per_image=block_per_image,
+                                img_shape=img_shape,
                                 block_size=block_size)
 comp_images = (comp_images*255).astype('uint8')
 
 test_images = []
 for i in range(0, len(test_images_clear), block_per_image):
-    test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size, overlap=overlap))
+    test_images.append(merge_img(test_images_clear[i:i+block_per_image], img_shape[0], img_shape[1], block_size, overlap=overlap))
 test_images = (np.array(test_images)*255).astype('uint8')
 print(comp_images.shape)
 
