@@ -99,9 +99,9 @@ cnt = 0
 recons_psnr = []
 comp_psnr = []
 for i in range(len(recons_images)):
-    recons_psnr.append(cv2.PSNR(recons_images[i], test_images[i]))
-    comp_psnr.append(cv2.PSNR(comp_images[i], test_images[i]))
-    if cv2.PSNR(recons_images[i], test_images[i]) > cv2.PSNR(comp_images[i], test_images[i]):
+    recons_psnr.append(cv2.PSNR(recons_images[i].numpy(), test_images[i].numpy()))
+    comp_psnr.append(cv2.PSNR(comp_images[i].numpy(), test_images[i].numpy()))
+    if cv2.PSNR(recons_images[i].numpy(), test_images[i].numpy()) > cv2.PSNR(comp_images[i].numpy(), test_images[i].numpy()):
         cnt += 1
 print(np.array(recons_psnr).mean(), np.array(comp_psnr).mean())
 print(cnt/len(test_images))
@@ -110,9 +110,9 @@ cnt = 0
 recons_ssim = []
 comp_ssim = []
 for i in range(len(recons_images)):
-    recons_ssim.append(ssim(recons_images[i], test_images[i], multichannel=True))
-    comp_ssim.append(ssim(comp_images[i], test_images[i], multichannel=True))
-    if ssim(recons_images[i], test_images[i], multichannel=True) > ssim(comp_images[i], test_images[i], multichannel=True):
+    recons_ssim.append(ssim(recons_images[i].numpy(), test_images[i].numpy(), multichannel=True))
+    comp_ssim.append(ssim(comp_images[i].numpy(), test_images[i].numpy(), multichannel=True))
+    if ssim(recons_images[i].numpy(), test_images[i].numpy(), multichannel=True) > ssim(comp_images[i].numpy(), test_images[i].numpy(), multichannel=True):
         cnt += 1
 print('SSIM')
 print(np.array(recons_ssim).mean(), np.array(comp_ssim).mean())
@@ -122,10 +122,10 @@ cnt = 0
 recons_se = []
 comp_se = []
 for i in range(len(recons_images)):
-    recons_se.append(sewar.full_ref.uqi(recons_images[i], test_images[i], ws=8))
-    comp_se.append(sewar.full_ref.uqi(comp_images[i], test_images[i], ws=8))
-    if sewar.full_ref.uqi(recons_images[i], test_images[i], 
-                        ws=8) > sewar.full_ref.uqi(comp_images[i], test_images[i], ws=8):
+    recons_se.append(sewar.full_ref.uqi(recons_images[i].numpy(), test_images[i].numpy(), ws=8))
+    comp_se.append(sewar.full_ref.uqi(comp_images[i].numpy(), test_images[i].numpy(), ws=8))
+    if sewar.full_ref.uqi(recons_images[i].numpy(), test_images[i].numpy(), 
+        ws=8) > sewar.full_ref.uqi(comp_images[i].numpy(), test_images[i].numpy(), ws=8):
         cnt += 1
 print('UQI')
 print(np.array(recons_se).mean(), np.array(comp_se).mean())

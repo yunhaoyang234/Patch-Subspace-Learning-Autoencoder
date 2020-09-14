@@ -77,7 +77,6 @@ def gen_blur(images):
             for j in range(size):
                 img[i+topleft][j+topleft] = b_img[i][j]
         blur_imgs.append(img)
-    blur_imgs = np.array(blur_imgs)
     return blur_imgs
 
 def noisy(image, prob=0.05):
@@ -98,7 +97,6 @@ def gen_noise(images, prob=0.05):
   noise = []
   for img in images:
     noise.append(noisy(img, prob))
-  noise = np.array(noise).astype('uint8')
   return noise
 
 
@@ -161,6 +159,17 @@ def gen_train_set(clear_imgs, blur_imgs, block_size):
             blur_images.append(bb)
     return np.array(clear_images)/255, np.array(blur_images)/255
 
+def gen_large_train_set(clear_imgs, blur_imgs):
+    batch_size = 1000
+    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], block_size)
+    blur_images = tf.convert_to_tensor(b, np.float32)
+    clear_images = tf.convert_to_tensor(c, np.float32)
+    
+    for i in range(batch_size, len(blur_imgs), batch_size):
+        c, b = gen_train_set(clear_imgs[i:i+batch_size], blur_imgs[i:i+batch_size], block_size)
+        blur_images = tf.concat([blur_images, tf.convert_to_tensor(b, np.float32)], axis=0)
+        clear_images = tf.concat([clear_images, tf.convert_to_tensor(c, np.float32)], axis=0)
+    return clear_images, blur_images
 
 latent_dim = 60
 regularizer = keras.regularizers.l1_l2()
@@ -361,12 +370,6 @@ def clustering(blur_images, clear_images, encoder, num_clusters=2):
         x = np.concatenate([x, encoder(blur_images[i: i+batch])[0]], axis=0)
     labels = np.array(cluster_latent(y))
 
-#    x = pca.fit_transform(x)
-#    colors = ['red', 'blue', 'green', 'yellow', 'black', 'purple']
-#    for n in range(num_clusters):
-#        plt.scatter(x[labels==n, 0], x[labels==n, 1], s=5, c=colors[n], label ='Cluster'+str(n))
-#    plt.show()
-
     clusters = gen_clusters(blur_images, labels, num_clusters)
     label_clusters = gen_clusters(clear_images, labels, num_clusters)
     clus = []
@@ -378,13 +381,14 @@ def clustering(blur_images, clear_images, encoder, num_clusters=2):
     return np.array(clus), np.array(label_clus)
 
 
-def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=0.0001):
+def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
     decoders = []
     for i in range(len(clus)):
         decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
-        model_i = AutoEncoder_P(encoder, decoder_i)
-        model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
-        model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
+        if len(clus[i]) > 0:
+            model_i = VAE_P(encoder, decoder_i)
+            model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
+            model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
         decoders.append(decoder_i)
     return decoders
 
@@ -403,13 +407,17 @@ def reconstruct_image(z, y, decoders,
     recons_images = []
     labels = cluster_latent(y)
     decoded_images = decode_images(z[:batch], labels[:batch], decoders)
+    blocks = decoded_images[: blocks_per_image]
+    image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
+    recons_images = tf.convert_to_tensor([image], np.float32)
+
     for i in range(batch, len(z), batch):
       decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
     for i in range(0, len(decoded_images), blocks_per_image):
         blocks = decoded_images[i: i+blocks_per_image]
         image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
-        recons_images.append(image)
-    return np.array(recons_images)
+        recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
+    return recons_images
 
 def tune_parameters(param, blur_images, clear_images, validation_images, val_blur_imgs):
     results = []

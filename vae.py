@@ -231,16 +231,6 @@ def clustering(blur_images, num_clusters=2):
 clus, label_clus = clustering(blur_images, num_cluster)
 
 # train decoders
-def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
-  decoders = []
-  for i in range(len(clus)):
-    decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
-    model_i = VAE_P(encoder, decoder_i)
-    model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
-    model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
-    decoders.append(decoder_i)
-  return decoders
-
 decoders = train_decoders(clus, label_clus, encoder, epoch)
 
 """## Evaluation"""
@@ -262,20 +252,18 @@ for i in range(batch, len(z), batch):
 recons_images = reconstruct_image(z, y,
                                   decoders=decoders,
                                   blocks_per_image=block_per_image,
-                                  img_shape=img_shape,
                                   block_size=block_size)
-recons_images = (recons_images*255).astype('uint8')
+recons_images = tf.cast((recons_images*255), dtype=tf.uint8)
 
 comp_images = reconstruct_image(z, y, [decoder]*num_cluster,
                                 blocks_per_image=block_per_image,
-                                img_shape=img_shape,
                                 block_size=block_size)
-comp_images = (comp_images*255).astype('uint8')
+comp_images = tf.cast((comp_images*255), dtype=tf.uint8)
 
 test_images = []
 for i in range(0, len(test_images_clear), block_per_image):
-  test_images.append(merge_img(test_images_clear[i:i+block_per_image], img_shape[0], img_shape[1], block_size, overlap=overlap))
-test_images = (np.array(test_images)*255).astype('uint8')
+  test_images.append(merge_img(test_images_clear[i:i+block_per_image], 256, 256, block_size))
+test_images = tf.cast((tf.constant(test_images)*255), dtype=tf.uint8)
 
 '''
 PSNR
@@ -284,9 +272,9 @@ cnt = 0
 recons_psnr = []
 comp_psnr = []
 for i in range(len(recons_images)):
-  recons_psnr.append(cv2.PSNR(recons_images[i], test_images[i]))
-  comp_psnr.append(cv2.PSNR(comp_images[i], test_images[i]))
-  if cv2.PSNR(recons_images[i], test_images[i]) > cv2.PSNR(comp_images[i], test_images[i]):
+  recons_psnr.append(cv2.PSNR(recons_images[i].numpy(), test_images[i].numpy()))
+  comp_psnr.append(cv2.PSNR(comp_images[i].numpy(), test_images[i].numpy()))
+  if cv2.PSNR(recons_images[i].numpy(), test_images[i].numpy()) > cv2.PSNR(comp_images[i].numpy(), test_images[i].numpy()):
     cnt += 1
 print(np.array(recons_psnr).mean(), np.array(comp_psnr).mean())
 print(cnt/len(test_images))
@@ -294,15 +282,13 @@ print(cnt/len(test_images))
 '''
 SSIM
 '''
-from skimage.metrics import structural_similarity as ssim
-
 cnt = 0
 recons_ssim = []
 comp_ssim = []
 for i in range(len(recons_images)):
-  recons_ssim.append(ssim(recons_images[i], test_images[i], multichannel=True))
-  comp_ssim.append(ssim(comp_images[i], test_images[i], multichannel=True))
-  if ssim(recons_images[i], test_images[i], multichannel=True) > ssim(comp_images[i], test_images[i], multichannel=True):
+  recons_ssim.append(ssim(recons_images[i].numpy(), test_images[i].numpy(), multichannel=True))
+  comp_ssim.append(ssim(comp_images[i].numpy(), test_images[i].numpy(), multichannel=True))
+  if ssim(recons_images[i].numpy(), test_images[i].numpy(), multichannel=True) > ssim(comp_images[i].numpy(), test_images[i].numpy(), multichannel=True):
     cnt += 1
 print('SSIM')
 print(np.array(recons_ssim).mean(), np.array(comp_ssim).mean())
@@ -315,10 +301,10 @@ cnt = 0
 recons_se = []
 comp_se = []
 for i in range(len(recons_images)):
-  recons_se.append(sewar.full_ref.uqi(recons_images[i], test_images[i], ws=8))
-  comp_se.append(sewar.full_ref.uqi(comp_images[i], test_images[i], ws=8))
-  if sewar.full_ref.uqi(recons_images[i], test_images[i], 
-                        ws=8) > sewar.full_ref.uqi(comp_images[i], test_images[i], ws=8):
+  recons_se.append(sewar.full_ref.uqi(recons_images[i].numpy(), test_images[i].numpy(), ws=8))
+  comp_se.append(sewar.full_ref.uqi(comp_images[i].numpy(), test_images[i].numpy(), ws=8))
+  if sewar.full_ref.uqi(recons_images[i].numpy(), test_images[i].numpy(), 
+                        ws=8) > sewar.full_ref.uqi(comp_images[i].numpy(), test_images[i].numpy(), ws=8):
     cnt += 1
 print('UQI')
 print(np.array(recons_se).mean(), np.array(comp_se).mean())
