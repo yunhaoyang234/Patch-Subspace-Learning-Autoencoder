@@ -29,6 +29,12 @@ num_cluster = 2
 shape = (block_size, block_size, 3)
 batch=10000
 
+lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate=0.001,
+    decay_steps=1000,
+    decay_rate=0.9
+)
+
 def load_images(file_path):
     raw_image_dataset = tf.data.TFRecordDataset(file_path)
 
@@ -413,7 +419,7 @@ def reconstruct_image(z, y, decoders,
 
     for i in range(batch, len(z), batch):
       decoded_images = np.concatenate([decoded_images, decode_images(z[i:i+batch], labels[i:i+batch], decoders)], axis=0)
-    for i in range(0, len(decoded_images), blocks_per_image):
+    for i in range(blocks_per_image, len(decoded_images), blocks_per_image):
         blocks = decoded_images[i: i+blocks_per_image]
         image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
         recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
@@ -426,11 +432,6 @@ def tune_parameters(param, blur_images, clear_images, validation_images, val_blu
             for epoch in param['epochs']:
                 for batch_size in param['batch_size']:
                     print('init_lr', i, 'decay_steps', d, 'epochs', epoch, 'batch_size', batch_size)
-                    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-                        initial_learning_rate=i,
-                        decay_steps=d,
-                        decay_rate=0.9
-                    )
                     encoder = build_encoder(latent_dim, shape, num_cluster)
                     decoder = build_decoder(latent_dim, shape,"decoder")
                     model = AutoEncoder(encoder, decoder, 1, num_cluster)

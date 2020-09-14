@@ -210,7 +210,7 @@ model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
 model.fit((blur_images,clear_images), epochs=epoch, batch_size=128)
 
 # clustering
-def clustering(blur_images, num_clusters=2):
+def clustering(blur_images, clear_images, num_clusters=2):
   batch = 10000
   x, y, z_mean, z_log_var, z = encoder(blur_images[:batch])
   for i in range(batch, len(blur_images), batch):
@@ -228,7 +228,7 @@ def clustering(blur_images, num_clusters=2):
     label_clus.append(np.array(label_clusters[c]))
   return np.array(clus), np.array(label_clus)
 
-clus, label_clus = clustering(blur_images, num_cluster)
+clus, label_clus = clustering(blur_images, clear_images, num_cluster)
 
 # train decoders
 decoders = train_decoders(clus, label_clus, encoder, epoch)
