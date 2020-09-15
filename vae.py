@@ -231,6 +231,17 @@ def clustering(blur_images, clear_images, num_clusters=2):
 clus, label_clus = clustering(blur_images, clear_images, num_cluster)
 
 # train decoders
+def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
+    decoders = []
+    for i in range(len(clus)):
+        decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
+        if len(clus[i]) > 0:
+            model_i = VAE_P(encoder, decoder_i)
+            model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
+            model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
+        decoders.append(decoder_i)
+    return decoders
+
 decoders = train_decoders(clus, label_clus, encoder, epoch)
 
 """## Evaluation"""

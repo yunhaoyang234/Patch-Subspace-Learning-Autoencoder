@@ -199,7 +199,14 @@ def build_encoder(latent_dim, shape, num_cluster=2):
                    kernel_regularizer=regularizer)(x)
     x = layers.Dense(latent_dim, activation="relu", 
                    kernel_regularizer=regularizer)(x)
-    encoder = keras.Model(encoder_inputs, x, name="encoder")
+
+    initializer = tf.keras.initializers.RandomNormal(1, 0.1)
+    y = layers.Dense(num_cluster, activation="relu",
+                   kernel_initializer=initializer, 
+                   trainable = False)(x)
+    y = layers.Softmax()(y)
+    latent = layers.Dense(8, activation="linear", trainable = False)(x)
+    encoder = keras.Model(encoder_inputs, [x, y, latent], name="encoder")
     return encoder
 
 def build_decoder(latent_dim, shape, name):
@@ -386,13 +393,12 @@ def clustering(blur_images, clear_images, encoder, num_clusters=2):
         label_clus.append(np.array(label_clusters[c]))
     return np.array(clus), np.array(label_clus)
 
-
 def train_decoders(clus, label_clus, encoder, epochs=100, batch_size=128, lr=lr_schedule):
     decoders = []
     for i in range(len(clus)):
         decoder_i = build_decoder(latent_dim, shape,"decoder"+str(i))
         if len(clus[i]) > 0:
-            model_i = VAE_P(encoder, decoder_i)
+            model_i = AutoEncoder_P(encoder, decoder_i)
             model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
             model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=batch_size)
         decoders.append(decoder_i)
