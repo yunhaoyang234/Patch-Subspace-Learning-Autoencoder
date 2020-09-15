@@ -20,8 +20,6 @@ print(images.shape)
 print("generate noise")
 blur_imgs = gen_noise(images)
 val_blur_imgs = gen_noise(validation_images)
-print(blur_imgs.shape)
-print(cv2.PSNR(blur_imgs[0], images[0]))
 
 """## Divide and Merge Images"""
 
@@ -89,10 +87,7 @@ comp_images = reconstruct_image(z, y, [decoder]*num_cluster,
                                 block_size=block_size)
 comp_images = tf.cast((comp_images*255), dtype=tf.uint8)
 
-test_images = []
-for i in range(0, len(test_images_clear), block_per_image):
-    test_images.append(merge_img(test_images_clear[i:i+block_per_image], img_shape[0], img_shape[1], block_size, overlap=overlap))
-test_images = tf.cast((tf.constant(test_images)*255), dtype=tf.uint8)
+test_images = validation_images
 
 print("Quality Metrics")
 '''
