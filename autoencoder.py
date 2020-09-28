@@ -15,6 +15,7 @@ import scipy as sp
 from sklearn import cluster
 from sklearn import decomposition
 from skimage.metrics import structural_similarity as ssim
+from skimage.util import random_noise
 import sewar
 import random
 import os
@@ -60,7 +61,7 @@ def load_images(file_path):
 
 def read_images(img_dir):
     data_path = os.path.join(img_dir,'*g')
-    files = glob.glob(data_path) 
+    files = glob.glob(data_path)
     data = []
     for f1 in files: 
         img = cv2.imread(f1) 
@@ -85,24 +86,19 @@ def gen_blur(images):
         blur_imgs.append(img)
     return blur_imgs
 
-def noisy(image, prob=0.05):
-    output = np.zeros(image.shape,np.uint8)
-    thres = 1 - prob 
-    for i in range(image.shape[0]):
-        for j in range(image.shape[1]):
-            rdn = random.random()
-            if rdn < prob:
-                output[i][j] = 0
-            elif rdn > thres:
-                output[i][j] = 255
-            else:
-                output[i][j] = image[i][j]
-    return output
-
-def gen_noise(images, prob=0.05):
+def gen_noise(images):
   noise = []
   for img in images:
-    noise.append(noisy(img, prob))
+    noise_image = np.copy(img)
+    noise_img = random_noise(noise_image[:60, :], mode='s&p',amount=0.2)
+    noise_image[:60, :] = np.array(255*noise_img, dtype = 'uint8')
+
+    noise_img = random_noise(noise_image[60:, :80], mode='gaussian', mean=0.2)
+    noise_image[60:, :80] = np.array(255*noise_img, dtype = 'uint8')
+
+    noise_img = random_noise(noise_image[60:, 80:], mode='speckle', mean=0.2)
+    noise_image[60:, 80:] = np.array(255*noise_img, dtype = 'uint8')
+    noise.append(noise_image)
   return noise
 
 
@@ -253,28 +249,6 @@ def update_centers(x, r, K):
     return centers
 
 # https://github.com/Ashish77IITM/W-Net/blob/master/soft_n_cut_loss.py
-
-def edge_weights(flatten_image, rows , cols, std_intensity=3, std_position=1, radius=5):
-	A = outer_product(flatten_image, tf.ones_like(flatten_image))
-	A_T = tf.transpose(A)
-	intensity_weight = tf.exp(-1*tf.square((tf.divide((A - A_T), std_intensity))))
-
-	xx, yy = tf.meshgrid(tf.range(rows), tf.range(cols))
-	xx = tf.reshape(xx, (rows*cols,))
-	yy = tf.reshape(yy, (rows*cols,))
-	A_x = outer_product(xx, tf.ones_like(xx))
-	A_y = outer_product(yy, tf.ones_like(yy))
-
-	xi_xj = A_x - tf.transpose(A_x)
-	yi_yj = A_y - tf.transpose(A_y)
-
-	sq_distance_matrix = tf.square(xi_xj) + tf.square(yi_yj)
-
-	dist_weight = tf.exp(-tf.divide(sq_distance_matrix,tf.square(std_position)))
-	dist_weight = tf.cast(dist_weight, tf.float32)
-	weight = tf.multiply(intensity_weight, dist_weight)
-	return weight
-
 def outer_product(v1,v2):
 	v1 = tf.reshape(v1, (-1,))
 	v2 = tf.reshape(v2, (-1,))
@@ -294,12 +268,53 @@ def denominator(k_class_prob,weights):
         return 0.1
     return deno
 
-def soft_n_cut_loss(flatten_image, prob, k, rows, cols):
-	soft_n_cut_loss = k
-	weights = edge_weights(flatten_image, rows ,cols)
-	for t in range(k): 
-		soft_n_cut_loss = soft_n_cut_loss - (numerator(prob[:,t],weights)/denominator(prob[:,t],weights))
-	return soft_n_cut_loss
+@tf.function
+def pairwise_distance(feature, squared: bool = False):
+    """Computes the pairwise distance matrix with numerical stability.
+    output[i, j] = || feature[i, :] - feature[j, :] ||_2
+    Args:
+      feature: 2-D Tensor of size [number of data, feature dimension].
+      squared: Boolean, whether or not to square the pairwise distances.
+    Returns:
+      pairwise_distances: 2-D Tensor of size [number of data, number of data].
+    """
+    pairwise_distances_squared = tf.math.add(
+        tf.math.reduce_sum(tf.math.square(feature), axis=[1], keepdims=True),
+        tf.math.reduce_sum(
+            tf.math.square(tf.transpose(feature)), axis=[0], keepdims=True
+        ),
+    ) - 2.0 * tf.matmul(feature, tf.transpose(feature))
+    # Deal with numerical inaccuracies. Set small negatives to zero.
+    pairwise_distances_squared = tf.math.maximum(pairwise_distances_squared, 0.0)
+    # Get the mask where the zero distances are at.
+    error_mask = tf.math.less_equal(pairwise_distances_squared, 0.0)
+    # Optionally take the sqrt.
+    if squared:
+        pairwise_distances = pairwise_distances_squared
+    else:
+        pairwise_distances = tf.math.sqrt(
+            pairwise_distances_squared
+            + tf.cast(error_mask, dtype=tf.dtypes.float32) * 1e-16
+        )
+    # Undo conditionally adding 1e-16.
+    pairwise_distances = tf.math.multiply(
+        pairwise_distances,
+        tf.cast(tf.math.logical_not(error_mask), dtype=tf.dtypes.float32),
+    )
+    num_data = tf.shape(feature)[0]
+    # Explicitly set diagonals to zero.
+    mask_offdiagonals = tf.ones_like(pairwise_distances) - tf.linalg.diag(
+        tf.ones([num_data])
+    )
+    pairwise_distances = tf.math.multiply(pairwise_distances, mask_offdiagonals)
+    return pairwise_distances
+
+def soft_n_cut_loss(z_mean, z_log_var, prob, k):
+    soft_n_cut_loss = k
+    weights = pairwise_distance(z_mean, True) + pairwise_distance(tf.exp(z_log_var), True)
+    for t in range(k):
+        soft_n_cut_loss = soft_n_cut_loss - (numerator(prob[:,t],weights)/denominator(prob[:,t],weights))
+    return soft_n_cut_loss
 
 
 class AutoEncoder(keras.Model):
@@ -329,20 +344,15 @@ class AutoEncoder(keras.Model):
                 tf.keras.losses.MSE(test, reconstruction))
             reconstruction_loss *= shape[0] * shape[1]
 
-            # leng = 0
-            # for k in range(len(y)):
-            #     leng += 1
-            # soft_cut_loss = 0
-            # for i in range(8):
-            #     soft_cut_loss += soft_n_cut_loss(latent[:,i], y, self.num_cluster, leng, 1)
+            soft_cut_loss = soft_n_cut_loss(z, z, y, self.num_cluster)
             
-            total_loss = reconstruction_loss + kl_loss# + soft_cut_loss
+            total_loss = reconstruction_loss + kl_loss + soft_cut_loss
         
         grads = tape.gradient(total_loss, self.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
         return {
             "reconstruction_loss": reconstruction_loss,
-            #"soft_n_cut_loss": soft_cut_loss,
+            "soft_n_cut_loss": soft_cut_loss,
         }
 
 class AutoEncoder_P(keras.Model):
@@ -430,45 +440,6 @@ def reconstruct_image(z, y, decoders,
         image = merge_img(blocks, img_shape[0], img_shape[1], block_size, overlap=overlap)
         recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
     return recons_images
-
-def tune_parameters(param, blur_images, clear_images, validation_images, val_blur_imgs):
-    results = []
-    for i in param['init_lr']:
-        for d in param['decay_steps']:
-            for epoch in param['epochs']:
-                for batch_size in param['batch_size']:
-                    print('init_lr', i, 'decay_steps', d, 'epochs', epoch, 'batch_size', batch_size)
-                    encoder = build_encoder(latent_dim, shape, num_cluster)
-                    decoder = build_decoder(latent_dim, shape,"decoder")
-                    model = AutoEncoder(encoder, decoder, 1, num_cluster)
-                    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
-                    model.fit((blur_images,clear_images), epochs=epoch, batch_size=batch_size)
-
-                    clus, label_clus = clustering(blur_images, clear_images, encoder, num_cluster)
-                    if len(clus[0]) < batch_size or len(clus[1]) < batch_size:
-                        batch_size = min(len(clus[0]), len(clus[1])) // 2 + 1
-                    decoders = train_decoders(clus, label_clus, encoder, epoch, batch_size=batch_size, lr=lr_schedule)
-
-                    test_images_clear, test_images_blur = gen_train_set(
-                        validation_images, val_blur_imgs, block_size=block_size)
-                    z, y, latent= encoder.predict(test_images_blur)
-                    decoded_imgs = decoder.predict(z)
-                    recons_images = reconstruct_image(z, y,
-                                                      decoders=decoders,
-                                                      blocks_per_image=block_per_image,
-                                                      block_size=block_size)
-                    recons_images = (recons_images*255).astype('uint8')
-                    test_images = []
-                    for i in range(0, len(test_images_clear), block_per_image):
-                        test_images.append(merge_img(test_images_clear[i:i+block_per_image],img_shape[0],img_shape[1], block_size, overlap=overlap))
-                    test_images = (np.array(test_images)*255).astype('uint8')
-
-                    recons_psnr = []
-                    for i in range(len(recons_images)):
-                        recons_psnr.append(cv2.PSNR(recons_images[i], test_images[i]))
-                    results.append(np.array(recons_psnr).mean())
-                    print(np.array(recons_psnr).mean())
-    return results
 
 
     

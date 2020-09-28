@@ -117,7 +117,6 @@ def build_decoder(latent_dim, shape, name):
   decoder = keras.Model(latent_inputs, decoder_outputs, name=name)
   return decoder
 
-"""## Define the VAE as a `Model` with a custom `train_step`"""
 
 class VAE(keras.Model):
     def __init__(self, encoder, decoder, num_cluster, **kwargs):
@@ -145,21 +144,16 @@ class VAE(keras.Model):
                 tf.keras.losses.MSE(test, reconstruction))
             reconstruction_loss *= shape[0] * shape[1]
 
-            # leng = 0
-            # for k in range(len(y)):
-            #   leng += 1
-            # soft_cut_loss = 0
-            # for i in range(latent_dim):
-            #   soft_cut_loss += soft_n_cut_loss(x[:,i], y, self.num_cluster, leng, 1)
+            soft_cut_loss = soft_n_cut_loss(z_mean, z_log_var, y, self.num_cluster)
             
-            total_loss = reconstruction_loss + kl_loss #+ 0.1*soft_cut_loss
+            total_loss = reconstruction_loss + kl_loss + soft_cut_loss
         
         grads = tape.gradient(total_loss, self.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trainable_weights))
         return {
             "reconstruction_loss": reconstruction_loss,
             "kl_loss": kl_loss,
-            #"soft_n_cut_loss": soft_cut_loss,
+            "soft_n_cut_loss": soft_cut_loss,
         }
 
 class VAE_P(keras.Model):
