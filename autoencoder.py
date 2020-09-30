@@ -71,35 +71,22 @@ def read_images(img_dir):
 def imshow(img):
     cv2.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
-
-def gen_blur(images):
-    topleft = 64
-    size = 64
-    blur_imgs = []
-    images_copy = np.copy(images)
-    for img in images_copy:
-        b_img = img[topleft:topleft+size, topleft:topleft+size]
-        b_img = cv2.blur(b_img,(100,100))
-        for i in range(size):
-            for j in range(size):
-                img[i+topleft][j+topleft] = b_img[i][j]
-        blur_imgs.append(img)
-    return blur_imgs
-
 def gen_noise(images):
-  noise = []
-  for img in images:
-    noise_image = np.copy(img)
-    noise_img = random_noise(noise_image[:60, :], mode='s&p',amount=0.2)
-    noise_image[:60, :] = np.array(255*noise_img, dtype = 'uint8')
+    p = random.randint(50, 100)
+    q = random.randint(50, 150)
+    noise = []
+    for img in images:
+        noise_image = np.copy(img)
+        noise_img = random_noise(noise_image[:p, :], mode='s&p',amount=0.2)
+        noise_image[:p, :] = np.array(255*noise_img, dtype = 'uint8')
 
-    noise_img = random_noise(noise_image[60:, :80], mode='gaussian', mean=0.2)
-    noise_image[60:, :80] = np.array(255*noise_img, dtype = 'uint8')
+        noise_img = random_noise(noise_image[p:, :q], mode='gaussian', mean=0.2)
+        noise_image[p:, :q] = np.array(255*noise_img, dtype = 'uint8')
 
-    noise_img = random_noise(noise_image[60:, 80:], mode='speckle', mean=0.2)
-    noise_image[60:, 80:] = np.array(255*noise_img, dtype = 'uint8')
-    noise.append(noise_image)
-  return noise
+        noise_img = random_noise(noise_image[p:, q:], mode='speckle', mean=0.2)
+        noise_image[p:, q:] = np.array(255*noise_img, dtype = 'uint8')
+        noise.append(noise_image)
+    return noise
 
 
 def divide_img(img, block_size=18, num_block=18, overlap=4):
