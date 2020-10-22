@@ -22,7 +22,7 @@ import os
 import glob
 
 img_shape = (256, 256) #(448, 448)
-block_size = 18
+block_size = 18 #28
 num_block = 18 #22
 block_per_image = num_block * num_block #484
 overlap = 4 # 8
@@ -428,5 +428,3 @@ def reconstruct_image(z, y, decoders,
         recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
     return recons_images
 
-
-    

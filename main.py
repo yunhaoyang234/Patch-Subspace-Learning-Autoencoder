@@ -1,136 +1,91 @@
-# -*- coding: utf-8 -*-
+import argparse
+import pprint
+import json
 
-import tensorflow as tf
-device_name = tf.test.gpu_device_name()
-if device_name != '/device:GPU:0':
-    raise SystemError('GPU device not found')
-print('Found GPU at: {}'.format(device_name))
+parser = argparse.ArgumentParser()
+parser.add_argument('--gpu', type=bool, default=True)
+parser.add_argument('--block_size', type=int, default=18)
+parser.add_argument('--num_block', type=int, default=18)
+parser.add_argument('--overlap', type=int, default=4)
+parser.add_argument('--batch', type=int, default=10000)
+parser.add_argument('--latent_dim', type=int, default=60)
+parser.add_argument('--epoch', type=int, default=100)
+parser.add_argument('--num_cluster', type=int, default=4)
 
-from autoencoder import *
+def main(args):
+    # Enable GPU
+    if args.gpu:
+        %tensorflow_version 2.x
+        import tensorflow as tf
+        device_name = tf.test.gpu_device_name()
+        if device_name != '/device:GPU:0':
+          raise SystemError('GPU device not found')
+        print('Found GPU at: {}'.format(device_name))
 
-print("load data")
-cwd = ""
-validation_images = load_images(cwd + 'validation-r08-s-0000-of-0040.tfrecords')
-images = load_images(cwd + 'train-r08-s-0000-of-0120.tfrecords')
-print(validation_images.shape)
-print(images.shape)
+    from train import *
+    from evaluation import *
 
-"""## Generate Blur Images"""
+    BLOCK_SIZE = args.block_size #28
+    NUM_BLOCK = args.num_block #22
+    BLOCK_PER_IMAGE = NUM_BLOCK * NUM_BLOCK
+    OVERLAP = args.num_block #8
+    WIDTH = len(images[0][0])
+    HEIGHT = len(images[0])
+    NUM_CLUSTER = args.num_cluster
+    SHAPE = (BLOCK_SIZE, BLOCK_SIZE, 3)
+    BATCH_SIZE = args.batch
+    LATENT_DIM = args.latent_dim
+    EPOCH = args.epoch
 
-print("generate noise")
-blur_imgs = gen_noise(images)
-val_blur_imgs = gen_noise(validation_images)
+    '''
+    Load Images
+    '''
+    validation_images = load_images(cwd + 'validation-r08-s-0000-of-0040.tfrecords')
+    images = load_images(cwd + 'train-r08-s-0000-of-0120.tfrecords')
 
-"""## Divide and Merge Images"""
+    '''
+    Generate Noise
+    '''
+    blur_imgs = gen_noise(images, 200, 100, 350)
+    val_blur_imgs = gen_noise(validation_images, 200, 100, 350)
+    clear_images, noise_images = gen_large_train_set(images, blur_imgs, BLOCK_SIZE, BATCH_SIZE)
 
-print("generate training set")
+    '''
+    Train Network
+    '''
+    encoder, decoder = train_encoder(noise_images, clear_images, LATENT_DIM, SHAPE, NUM_CLUSTER, EPOCH)
+    clus, label_clus = clustering(noise_images.numpy(), clear_images.numpy(), encoder, NUM_CLUSTER, BATCH_SIZE)
+    decoders = train_decoders(clus, label_clus, encoder, LATENT_DIM, SHAPE, EPOCH)
 
-clear_images, blur_images = gen_train_set(images, blur_imgs, block_size=block_size)
+    '''
+    Reconstruct
+    '''
+    test_images_clear, test_images_blur = gen_large_train_set(validation_images, val_blur_imgs)
+    z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder.predict(test_images_blur[:BATCH_SIZE])
+    for i in range(BATCH_SIZE, len(test_images_blur), BATCH_SIZE):
+        new_z, m, s, y, log, pm, ps = encoder.predict(test_images_blur[i: i+BATCH_SIZE])
+        y_logits = np.concatenate([y_logits, log], axis=0)
+        z = np.concatenate([z, new_z], axis=0)
 
-print(clear_images.shape, blur_images.shape)
+    decoded_imgs = decoder.predict(z[:BATCH_SIZE])
+    for i in range(BATCH_SIZE, len(z), BATCH_SIZE):
+        decoded_imgs = np.concatenate([decoded_imgs, decoder.predict(z[i:i+BATCH_SIZE])], axis=0)
 
-# print("tune hyperparameter")
-# param = {'init_lr':[0.01, 0.001, 0.0001], 'decay_steps':[100,1000], 'epochs':[50,100],
-#         'batch_size': [64, 128]}
-# results = tune_parameters(param, blur_images, clear_images, validation_images, val_blur_imgs)
-# print(results)
-# exit()
+    recons_images = reconstruct_image(z, y_logits, [decoder]*NUM_CLUSTER, 
+                                      BATCH_SIZE, BLOCK_PER_IMAGE, WIDTH, 
+                                      HEIGHT, BLOCK_SIZE, OVERLAP)
+    comp_images = reconstruct_image(z, y_logits, decoders, BATCH_SIZE, BLOCK_PER_IMAGE, 
+                                    WIDTH, HEIGHT, BLOCK_SIZE, OVERLAP)
+    recons_images = tf.cast((recons_images*255), dtype=tf.uint8)
+    comp_images = tf.cast((comp_images*255), dtype=tf.uint8)
+    test_images = validation_images
 
-print("train autoencoder")
-lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate=0.001,
-    decay_steps=1000,
-    decay_rate=0.9
-)
+    '''
+    Evaluate
+    '''
+    quality_evaluation(recons_images, test_images, comp_images, metric='PSNR')
+    quality_evaluation(recons_images, test_images, comp_images, metric='SSIM')
+    quality_evaluation(recons_images, test_images, comp_images, metric='UQI')
 
-epoch = 100
-
-encoder = build_encoder(latent_dim, shape, num_cluster)
-decoder = build_decoder(latent_dim, shape,"decoder")
-model = AutoEncoder(encoder, decoder, 1, num_cluster)
-model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
-model.fit((blur_images,clear_images), epochs=epoch, batch_size=128)
-
-print("clustering")
-clus, label_clus = clustering(blur_images, clear_images, encoder, num_cluster)
-print(clus[0].shape, clus[1].shape)
-
-print("train decoders")
-decoders = train_decoders(clus, label_clus, encoder, epoch)
-
-print("reconstruct images")
-test_images_clear, test_images_blur = gen_train_set(
-    validation_images, val_blur_imgs, block_size=block_size)
-
-batch = 10000
-z, y, latent = encoder.predict(test_images_blur[:batch])
-for i in range(batch, len(test_images_blur), batch):
-    y = np.concatenate([y, encoder.predict(test_images_blur[i: i+batch])[1]], axis=0)
-    z = np.concatenate([z, encoder.predict(test_images_blur[i: i+batch])[0]], axis=0)
-
-decoded_imgs = decoder.predict(z[:batch])
-for i in range(batch, len(z), batch):
-    decoded_imgs = np.concatenate([decoded_imgs, decoder.predict(z[i:i+batch])], axis=0)
-
-recons_images = reconstruct_image(z, y,
-                                  decoders=decoders,
-                                  blocks_per_image=block_per_image,
-                                  img_shape=img_shape,
-                                  block_size=block_size)
-recons_images = tf.cast((recons_images*255), dtype=tf.uint8)
-
-print(recons_images.shape)
-
-comp_images = reconstruct_image(z, y, [decoder]*num_cluster,
-                                blocks_per_image=block_per_image,
-                                img_shape=img_shape,
-                                block_size=block_size)
-comp_images = tf.cast((comp_images*255), dtype=tf.uint8)
-
-test_images = validation_images
-
-print("Quality Metrics")
-'''
-PSNR
-'''
-cnt = 0
-recons_psnr = []
-comp_psnr = []
-for i in range(len(recons_images)):
-  recons_psnr.append(cv2.PSNR(recons_images[i].numpy(), test_images[i]))
-  comp_psnr.append(cv2.PSNR(comp_images[i].numpy(), test_images[i]))
-  if cv2.PSNR(recons_images[i].numpy(), test_images[i]) > cv2.PSNR(comp_images[i].numpy(), test_images[i]):
-    cnt += 1
-print(np.array(recons_psnr).mean(), np.array(comp_psnr).mean())
-print(cnt/len(test_images))
-
-'''
-SSIM
-'''
-cnt = 0
-recons_ssim = []
-comp_ssim = []
-for i in range(len(recons_images)):
-  recons_ssim.append(ssim(recons_images[i].numpy(), test_images[i], multichannel=True))
-  comp_ssim.append(ssim(comp_images[i].numpy(), test_images[i], multichannel=True))
-  if ssim(recons_images[i].numpy(), test_images[i], multichannel=True) > ssim(comp_images[i].numpy(), test_images[i], multichannel=True):
-    cnt += 1
-print('SSIM')
-print(np.array(recons_ssim).mean(), np.array(comp_ssim).mean())
-print(cnt/len(test_images))
-
-'''
-UQI
-'''
-cnt = 0
-recons_se = []
-comp_se = []
-for i in range(len(recons_images)):
-  recons_se.append(sewar.full_ref.uqi(recons_images[i].numpy(), test_images[i], ws=8))
-  comp_se.append(sewar.full_ref.uqi(comp_images[i].numpy(), test_images[i], ws=8))
-  if sewar.full_ref.uqi(recons_images[i].numpy(), test_images[i], 
-                        ws=8) > sewar.full_ref.uqi(comp_images[i].numpy(), test_images[i], ws=8):
-    cnt += 1
-print('UQI')
-print(np.array(recons_se).mean(), np.array(comp_se).mean())
-print(cnt/len(test_images))
+if __name__ == '__main__':
+    main(parser.parse_args())
