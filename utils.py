@@ -129,7 +129,7 @@ def gen_train_set(clear_imgs, blur_imgs, block_size):
     return np.array(clear_images)/255, np.array(noise_images)/255
 
 def gen_large_train_set(clear_imgs, blur_imgs, block_size, batch_size):
-    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size])
+    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], block_size)
     noise_images = tf.convert_to_tensor(b, np.float32)
     clear_images = tf.convert_to_tensor(c, np.float32)
     
@@ -151,7 +151,7 @@ def decode_images(z, labels, decoders):
 
 def reconstruct_image(z, y, decoders, batch_size, block_per_image, width, height, block_size, overlap):
     recons_images = []
-    labels = cluster_latent(y)
+    labels = cluster_latent(y, batch_size)
     decoded_images = decode_images(z[:batch_size], labels[:batch_size], decoders)
     blocks = decoded_images[: block_per_image]
     image = merge_img(blocks, width, height, block_size, overlap)
