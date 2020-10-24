@@ -123,8 +123,6 @@ def main(args):
     NUM_BLOCK = args.num_block #22
     BLOCK_PER_IMAGE = NUM_BLOCK * NUM_BLOCK
     OVERLAP = args.num_block #8
-    WIDTH = len(images[0][0])
-    HEIGHT = len(images[0])
     NUM_CLUSTER = args.num_cluster
     SHAPE = (BLOCK_SIZE, BLOCK_SIZE, 3)
     BATCH_SIZE = args.batch
@@ -136,6 +134,8 @@ def main(args):
     '''
     validation_images = load_images(cwd + 'validation-r08-s-0000-of-0040.tfrecords')
     images = load_images(cwd + 'train-r08-s-0000-of-0120.tfrecords')
+    WIDTH = len(images[0][0])
+    HEIGHT = len(images[0])
     blur_imgs = gen_noise(images)
     val_blur_imgs = gen_noise(validation_images)
     clear_images, blur_images = gen_large_train_set(images, blur_imgs, BLOCK_SIZE, BATCH_SIZE)
