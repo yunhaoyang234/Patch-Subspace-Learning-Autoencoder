@@ -46,8 +46,8 @@ def main(args):
     '''
     Generate Noise
     '''
-    blur_imgs = gen_noise(images, 200, 100, 350)
-    val_blur_imgs = gen_noise(validation_images, 200, 100, 350)
+    blur_imgs = gen_noise(images) #, 200, 100, 350)
+    val_blur_imgs = gen_noise(validation_images) #, 200, 100, 350)
     clear_images, noise_images = gen_large_train_set(images, blur_imgs, BLOCK_SIZE, BATCH_SIZE)
 
     '''
@@ -60,7 +60,7 @@ def main(args):
     '''
     Reconstruct
     '''
-    test_images_clear, test_images_blur = gen_large_train_set(validation_images, val_blur_imgs)
+    test_images_clear, test_images_blur = gen_large_train_set(validation_images, val_blur_imgs, , BLOCK_SIZE, BATCH_SIZE)
     z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder.predict(test_images_blur[:BATCH_SIZE])
     for i in range(BATCH_SIZE, len(test_images_blur), BATCH_SIZE):
         new_z, m, s, y, log, pm, ps = encoder.predict(test_images_blur[i: i+BATCH_SIZE])
