@@ -15,7 +15,7 @@ from keras.layers import Input, Dense, Lambda
 
 cwd = ''
 
-def load_images(file_path):
+def load_celeb_images(file_path):
     raw_image_dataset = tf.data.TFRecordDataset(file_path)
 
     # Create a dictionary describing the features.
@@ -36,16 +36,23 @@ def load_images(file_path):
         img = tf.io.decode_raw(image_raw, tf.uint8)
         img = tf.reshape(img, shape).numpy()
         images.append(img)
-    return np.array(images)
+    return images
 
-def read_images(img_dir):
-    data_path = os.path.join(img_dir,'*g')
-    files = glob.glob(data_path)
+def read_images(files):
     data = []
-    for f1 in files: 
-        img = cv2.imread(f1) 
+    for f1 in files:
+        img = []
+        img = cv2.imread(f1)
         data.append(img)
-    return np.array(data)
+    return data
+
+def crop_square(imgs, length = 3000):
+    data = []
+    for img in imgs:
+        img1, img2 = img[:length, -length:], img[:length, :length]
+        data.append(cv2.resize(img1, (length,length)))
+        data.append(cv2.resize(img2, (length,length)))
+    return data
 
 def gen_noise(images, x=100, y=50, z=150):
     noise = []
@@ -115,26 +122,24 @@ def merge_img(blocks, width=256, height=256, block_size=18, overlap=4):
         img = np.concatenate([cur_block, lap, cur_row], axis=0)
     return img
 
-def gen_train_set(clear_imgs, blur_imgs, block_size):
-    noise_images = []
-    clear_images = []
+def gen_train_set(clear_imgs, blur_imgs, block_size, num_block, overlap):
+    noise_images = np.expand_dims(np.zeros(SHAPE), 0)
+    clear_images = np.expand_dims(np.zeros(SHAPE), 0)
 
     for i in range(len(clear_imgs)):
-        blocks = divide_img(clear_imgs[i], block_size, NUM_BLOCK, OVERLAP)
-        for b in blocks:
-            clear_images.append(b)
-        blur_blocks = divide_img(blur_imgs[i], block_size, NUM_BLOCK, OVERLAP)
-        for bb in blur_blocks:
-            noise_images.append(bb)
-    return np.array(clear_images)/255, np.array(noise_images)/255
+        blocks = divide_img(clear_imgs[i], block_size, num_block, overlap)
+        clear_images = np.concatenate([clear_images, blocks])
+        blur_blocks = divide_img(blur_imgs[i], block_size, num_block, overlap)
+        noise_images = np.concatenate([noise_images, blur_blocks])
+    return clear_images[1:]/255, noise_images[1:]/255
 
-def gen_large_train_set(clear_imgs, blur_imgs, block_size, batch_size):
-    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], block_size)
+def gen_large_train_set(clear_imgs, blur_imgs, block_size, batch_size, num_block, overlap):
+    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], block_size, num_block, overlap)
     noise_images = tf.convert_to_tensor(b, np.float32)
     clear_images = tf.convert_to_tensor(c, np.float32)
     
     for i in range(batch_size, len(blur_imgs), batch_size):
-        c, b = gen_train_set(clear_imgs[i:i+batch_size], blur_imgs[i:i+batch_size], block_size)
+        c, b = gen_train_set(clear_imgs[i:i+batch_size], blur_imgs[i:i+batch_size], block_size, num_block, overlap)
         noise_images = tf.concat([noise_images, tf.convert_to_tensor(b, np.float32)], axis=0)
         clear_images = tf.concat([clear_images, tf.convert_to_tensor(c, np.float32)], axis=0)
     return clear_images, noise_images
@@ -168,3 +173,20 @@ def reconstruct_image(z, y, decoders, batch_size, block_per_image, width, height
         image = merge_img(blocks, width, height, block_size, overlap)
         recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
     return recons_images
+
+def save_models(encoder, decoder, decoders, file_path):
+    encoder.save(cwd + file_path + 'encoder')
+    decoder.save(cwd + file_path + 'encoder')
+    for i in range(len(decoders)):
+        decoders[i].save(cwd + file_path + 'encoder' + str(i))
+
+def load_models(file_path):
+    encoder = keras.models.load_model(cwd + file_path + 'encoder')
+    decoder = keras.models.load_model(cwd + file_path + 'decoder')
+    decoders = []
+    files = sorted(glob.glob(cwd + file_path + '*'))
+    for f in files:
+        decoders.append(keras.models.load_model(f))
+    return encoder, decoder, decoders
+
+

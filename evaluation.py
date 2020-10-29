@@ -30,3 +30,4 @@ def quality_evaluation(recons_images, test_images, comp_images, metric='PSNR'):
     print(metric)
     print(np.array(recons).mean(), np.array(comp).mean())
     print(cnt/len(test_images))
+    return np.array(recons).sum()
