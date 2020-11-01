@@ -91,12 +91,12 @@ def kl_divergence_two_gauss(mean1,sig1,mean2,sig2):
     return tf.reduce_mean(tf.reduce_mean(tf.math.log(sig2) - tf.math.log(sig1) + ((tf.math.square(sig1) + tf.math.square(mean1-mean2)) / (2*tf.math.square(sig2))) - 0.5, axis=1))
 
 class VAE(keras.Model):
-    def __init__(self, encoder, decoder, **kwargs):
+    def __init__(self, encoder, decoder, num_cluster, shape, **kwargs):
         super(VAE, self).__init__(**kwargs)
         self.encoder = encoder
         self.decoder = decoder
-        self.num_cluster = NUM_CLUSTER
-        self.shape = SHAPE
+        self.num_cluster = num_cluster
+        self.shape = shape
 
     def train_step(self, data):
         test = data[0][1]

@@ -7,8 +7,8 @@ lr_schedule = keras.optimizers.schedules.ExponentialDecay(
     decay_rate=0.9
 )
 
-def train_encoder(noise_images, clear_images, epoch):
-    model = VAE(encoder, decoder)
+def train_encoder(noise_images, clear_images, encoder, decoder, num_cluster, shape, epoch):
+    model = VAE(encoder, decoder, num_cluster, shape)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
     model.fit((noise_images,clear_images), epochs=epoch, batch_size=128)
     return encoder, decoder

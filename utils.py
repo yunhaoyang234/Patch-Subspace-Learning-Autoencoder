@@ -82,6 +82,9 @@ def gen_noise(images, x=100, y=50, z=150):
 def divide_img(img, block_size=18, num_block=18, overlap=4):
     height = len(img)
     width = len(img[0])
+    #print("block_size: " + str(block_size))
+    #print("num_block: " + str(num_block))
+    #print("overlap: " + str(overlap))
     if not (block_size*num_block - (num_block - 1)*overlap == height):
         raise ValueError('Block size mismatch', block_size*num_block - (num_block - 1)*overlap, height)
     size = block_size - overlap
@@ -122,9 +125,9 @@ def merge_img(blocks, width=256, height=256, block_size=18, overlap=4):
         img = np.concatenate([cur_block, lap, cur_row], axis=0)
     return img
 
-def gen_train_set(clear_imgs, blur_imgs, block_size, num_block, overlap):
-    noise_images = np.expand_dims(np.zeros(SHAPE), 0)
-    clear_images = np.expand_dims(np.zeros(SHAPE), 0)
+def gen_train_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap):
+    noise_images = np.expand_dims(np.zeros(shape), 0)
+    clear_images = np.expand_dims(np.zeros(shape), 0)
 
     for i in range(len(clear_imgs)):
         blocks = divide_img(clear_imgs[i], block_size, num_block, overlap)
@@ -133,13 +136,13 @@ def gen_train_set(clear_imgs, blur_imgs, block_size, num_block, overlap):
         noise_images = np.concatenate([noise_images, blur_blocks])
     return clear_images[1:]/255, noise_images[1:]/255
 
-def gen_large_train_set(clear_imgs, blur_imgs, block_size, batch_size, num_block, overlap):
-    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], block_size, num_block, overlap)
+def gen_large_train_set(clear_imgs, blur_imgs, shape, block_size, batch_size, num_block, overlap):
+    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], shape, block_size, num_block, overlap)
     noise_images = tf.convert_to_tensor(b, np.float32)
     clear_images = tf.convert_to_tensor(c, np.float32)
     
     for i in range(batch_size, len(blur_imgs), batch_size):
-        c, b = gen_train_set(clear_imgs[i:i+batch_size], blur_imgs[i:i+batch_size], block_size, num_block, overlap)
+        c, b = gen_train_set(clear_imgs[i:i+batch_size], blur_imgs[i:i+batch_size], shape, block_size, num_block, overlap)
         noise_images = tf.concat([noise_images, tf.convert_to_tensor(b, np.float32)], axis=0)
         clear_images = tf.concat([clear_images, tf.convert_to_tensor(c, np.float32)], axis=0)
     return clear_images, noise_images
@@ -155,6 +158,7 @@ def decode_images(z, labels, decoders):
     return decoded_images
 
 def reconstruct_image(z, y, decoders, batch_size, block_per_image, width, height, block_size, overlap):
+    from train import cluster_latent
     recons_images = []
     labels = cluster_latent(y, batch_size)
     decoded_images = decode_images(z[:batch_size], labels[:batch_size], decoders)
