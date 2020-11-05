@@ -100,7 +100,7 @@ def main(args):
 
     test_files = sorted(glob.glob(cwd + args.test_files_path + '*'))
     test_valid_files = sorted(glob.glob(cwd + args.test_validation_files_path + '*'))
-    if len(train_files) != len(valid_files):
+    if len(test_files) != len(test_valid_files):
         raise ValueError('Test and Validation file must have same length', len(test_files), len(test_valid_files))
 
     psnr, ssim, uqi = 0, 0, 0
