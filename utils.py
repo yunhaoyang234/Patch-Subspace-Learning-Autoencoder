@@ -46,6 +46,26 @@ def read_images(files):
         data.append(img)
     return data
 
+def extract_bayer_channels(raw):
+    # Reshape the input bayer image
+    ch_B  = raw[1::2, 1::2]
+    ch_Gb = raw[0::2, 1::2]
+    ch_R  = raw[0::2, 0::2]
+    ch_Gr = raw[1::2, 0::2]
+
+    RAW_combined = np.dstack((ch_B, ch_Gb, ch_R, ch_Gr))
+    RAW_norm = RAW_combined.astype(np.float32) / (4 * 255)
+
+    return RAW_norm
+
+def read_raw(files):
+    data = []
+    for f in files:
+        I = np.asarray(imageio.imread((f)))
+        I = extract_bayer_channels(I)
+        data.append(I)
+    return data
+
 def crop_square(imgs, length = 3000):
     data = []
     for img in imgs:
@@ -136,16 +156,16 @@ def gen_train_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap):
         noise_images = np.concatenate([noise_images, blur_blocks])
     return clear_images[1:]/255, noise_images[1:]/255
 
-def gen_large_train_set(clear_imgs, blur_imgs, shape, block_size, batch_size, num_block, overlap):
-    c, b = gen_train_set(clear_imgs[:batch_size], blur_imgs[:batch_size], shape, block_size, num_block, overlap)
-    noise_images = tf.convert_to_tensor(b, np.float32)
-    clear_images = tf.convert_to_tensor(c, np.float32)
-    
-    for i in range(batch_size, len(blur_imgs), batch_size):
-        c, b = gen_train_set(clear_imgs[i:i+batch_size], blur_imgs[i:i+batch_size], shape, block_size, num_block, overlap)
-        noise_images = tf.concat([noise_images, tf.convert_to_tensor(b, np.float32)], axis=0)
-        clear_images = tf.concat([clear_images, tf.convert_to_tensor(c, np.float32)], axis=0)
-    return clear_images, noise_images
+def gen_zurich_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap):
+    noise_images = np.expand_dims(np.zeros((shape[0]//2, shape[1]//2, 4)), 0)
+    clear_images = np.expand_dims(np.zeros(shape), 0)
+
+    for i in range(len(clear_imgs)):
+        blocks = divide_img(clear_imgs[i], block_size, num_block, overlap)
+        clear_images = np.concatenate([clear_images, blocks])
+        blur_blocks = divide_img(blur_imgs[i], block_size//2, num_block, overlap//2)
+        noise_images = np.concatenate([noise_images, blur_blocks])
+    return clear_images[1:]/255, noise_images[1:]
 
 def decode_images(z, labels, decoders):
     decoded_images = []

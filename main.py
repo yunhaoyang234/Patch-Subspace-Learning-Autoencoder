@@ -53,11 +53,7 @@ def main(args):
     '''
     train_files = sorted(glob.glob(cwd + args.train_files_path + '*'))
     valid_files = sorted(glob.glob(cwd + args.validation_files_path + '*'))
-
-    print(len(train_files))
-    print()
-    print(len(valid_files))
-    print()
+    
     if len(train_files) != len(valid_files):
         raise ValueError('Train and Validation file must have same length', len(train_files), len(valid_files))
 
@@ -81,14 +77,19 @@ def main(args):
             noise_images = crop_square(read_images(train))
         else:
             clear_images = read_images(valid)
-            noise_images = read_images(train)
+            noise_images = read_raw(train)
         WIDTH = len(clear_images[0][0])
         HEIGHT = len(clear_images[0])
-        clear_images, noise_images = gen_large_train_set(clear_images, noise_images, SHAPE,
-                                                         BLOCK_SIZE, BATCH_SIZE, NUM_BLOCK, OVERLAP)
-        encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH)
-        clus, label_clus = clustering(noise_images.numpy(), clear_images.numpy(), encoder, 
-                                      NUM_CLUSTER, BATCH_SIZE)
+
+        if DATASET == 'zurich':
+            clear_images, noise_images = gen_zurich_set(clear_images, noise_images, SHAPE,
+                                                        BLOCK_SIZE, NUM_BLOCK, OVERLAP)
+        else: 
+            clear_images, noise_images = gen_train_set(clear_images, noise_images, SHAPE,
+                                                       BLOCK_SIZE, NUM_BLOCK, OVERLAP)
+
+        encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH, lr_schedule)
+        clus, label_clus = clustering(noise_images, clear_images, encoder, NUM_CLUSTER, BATCH_SIZE)
         decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH)
 
     # save_models(encoder, decoder, decoders, DATASET + '/')
@@ -101,9 +102,9 @@ def main(args):
     test_files = sorted(glob.glob(cwd + args.test_files_path + '*'))
     test_valid_files = sorted(glob.glob(cwd + args.test_validation_files_path + '*'))
     if len(test_files) != len(test_valid_files):
-        raise ValueError('Test and Validation file must have same length', len(test_files), len(test_valid_files))
+    raise ValueError('Test and Validation file must have same length', len(test_files), len(test_valid_files))
 
-    psnr, ssim, uqi = 0, 0, 0
+    avg_psnr, avg_ssim, avg_uqi = 0, 0, 0
 
     for fb in range(0, len(test_files), FILE_BATCH):
         train = test_files[fb:fb+FILE_BATCH]
@@ -117,16 +118,23 @@ def main(args):
             noise_images = crop_square(read_images(train))
         else:
             clear_images = read_images(valid)
-            noise_images = read_images(train)
+            noise_images = read_raw(train)
+        WIDTH = len(clear_images[0][0])
+        HEIGHT = len(clear_images[0])
         test_images = np.array(clear_images)
-        clear_images, noise_images = gen_large_train_set(clear_images, noise_images, SHAPE,
-                                                         BLOCK_SIZE, BATCH_SIZE, NUM_BLOCK, OVERLAP)
+        if DATASET == 'zurich':
+            clear_images, noise_images = gen_zurich_set(clear_images, noise_images, SHAPE,
+                                                        BLOCK_SIZE, NUM_BLOCK, OVERLAP)
+        else: 
+            clear_images, noise_images = gen_train_set(clear_images, noise_images, SHAPE,
+                                                       BLOCK_SIZE, NUM_BLOCK, OVERLAP)
+
         z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder.predict(noise_images[:BATCH_SIZE])
         for i in range(BATCH_SIZE, len(noise_images), BATCH_SIZE):
             new_z, m, s, y, log, pm, ps = encoder.predict(noise_images[i: i+BATCH_SIZE])
             y_logits = np.concatenate([y_logits, log], axis=0)
             z = np.concatenate([z, new_z], axis=0)
-        
+            
         recons_images = reconstruct_image(z, y_logits, [decoder]*NUM_CLUSTER, 
                                           BATCH_SIZE, BLOCK_PER_IMAGE, WIDTH, 
                                           HEIGHT, BLOCK_SIZE, OVERLAP)
@@ -135,14 +143,14 @@ def main(args):
         recons_images = tf.cast((recons_images*255), dtype=tf.uint8)
         comp_images = tf.cast((comp_images*255), dtype=tf.uint8)
 
-        psnr += quality_evaluation(recons_images, test_images, comp_images, metric='PSNR')
-        ssim += quality_evaluation(recons_images, test_images, comp_images, metric='SSIM')
-        uqi += quality_evaluation(recons_images, test_images, comp_images, metric='UQI')
+        avg_psnr += quality_evaluation(recons_images, test_images, comp_images, metric='PSNR')
+        avg_ssim += quality_evaluation(recons_images, test_images, comp_images, metric='SSIM')
+        avg_uqi += quality_evaluation(recons_images, test_images, comp_images, metric='UQI')
     print('***********************')
     print('Overall Results')
-    print('PSNR: ', psnr/len(test_files))
-    print('SSIM: ', ssim/len(test_files))
-    print('UQI: ', uqi/len(test_files))
+    print('PSNR: ', avg_psnr/len(test_files)*FILE_BATCH)
+    print('SSIM: ', avg_ssim/len(test_files)*FILE_BATCH)
+    print('UQI: ', avg_uqi/len(test_files))
     print('***********************')
 
 if __name__ == '__main__':
