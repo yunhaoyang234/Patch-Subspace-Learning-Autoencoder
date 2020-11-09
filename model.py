@@ -25,6 +25,19 @@ class Sampling(layers.Layer):
         epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
+class gumbel_softmax(keras.layers.Layer):
+    def __init__(self, input_dim, tau):
+        super(gumbel_softmax, self).__init__()
+        w_init = tf.random_uniform_initializer(0.1,1)
+        self.w = tf.Variable(
+            initial_value=w_init(shape=[input_dim], dtype="float32"),
+            trainable=False,
+        )
+        self.tau = tau
+
+    def call(self, inputs):
+        return (inputs - tf.math.log(-tf.math.log(self.w)))/self.tau
+
 def build_encoder(latent_dim, shape, num_cluster):
     encoder_inputs = keras.Input(shape=shape)
 
@@ -46,6 +59,7 @@ def build_encoder(latent_dim, shape, num_cluster):
     y = layers.Dense(256, activation="relu")(x)
     y = layers.Dense(32, activation="relu")(y)
     y_logits = layers.Dense(num_cluster, activation="linear")(y)
+    y = gumbel_softmax(128, 1)(y)
     y = layers.Softmax()(y)
     y_logits = layers.Softmax()(y_logits)
 

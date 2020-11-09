@@ -10,7 +10,7 @@ lr_schedule = keras.optimizers.schedules.ExponentialDecay(
 def train_encoder(noise_images, clear_images, encoder, decoder, num_cluster, shape, epoch):
     model = VAE(encoder, decoder, num_cluster, shape)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
-    model.fit((noise_images,clear_images), epochs=epoch, batch_size=128)
+    model.fit((noise_images,clear_images), epochs=epoch, batch_size=128, verbose=0)
     return encoder, decoder
 
 def cluster_latent(y, batch):

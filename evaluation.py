@@ -27,7 +27,7 @@ def quality_evaluation(recons_images, test_images, comp_images, metric='PSNR'):
         comp.append(metric_comp)
         if metric_recons > metric_comp:
             cnt += 1
-    print(metric)
-    print(np.array(recons).mean(), np.array(comp).mean())
-    print(cnt/len(test_images))
+    # print(metric)
+    # print(np.array(recons).mean(), np.array(comp).mean())
+    # print(cnt/len(test_images))
     return np.array(recons).mean()
