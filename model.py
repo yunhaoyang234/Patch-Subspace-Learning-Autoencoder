@@ -57,9 +57,9 @@ def build_encoder(latent_dim, shape, num_cluster):
 
     # y probability block
     y = layers.Dense(256, activation="relu")(x)
-    y = layers.Dense(32, activation="relu")(y)
+    y = layers.Dense(128, activation="relu")(y)
     y_logits = layers.Dense(num_cluster, activation="linear")(y)
-    y = gumbel_softmax(128, 1)(y)
+    y = gumbel_softmax(num_cluster, 1)(y_logits)
     y = layers.Softmax()(y)
     y_logits = layers.Softmax()(y_logits)
 
