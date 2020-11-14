@@ -90,7 +90,7 @@ def main(args):
 
         encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH, lr_schedule)
         clus, label_clus = clustering(noise_images, clear_images, encoder, NUM_CLUSTER, BATCH_SIZE)
-        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH)
+        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights())
 
     # save_models(encoder, decoder, decoders, DATASET + '/')
 
@@ -131,26 +131,23 @@ def main(args):
 
         z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder.predict(noise_images[:BATCH_SIZE])
         for i in range(BATCH_SIZE, len(noise_images), BATCH_SIZE):
-            new_z, m, s, y, log, pm, ps = encoder.predict(noise_images[i: i+BATCH_SIZE])
-            y_logits = np.concatenate([y_logits, log], axis=0)
+            new_z, m, s, new_y, log, pm, ps = encoder.predict(noise_images[i: i+BATCH_SIZE])
+            y = np.concatenate([y, new_y], axis=0)
             z = np.concatenate([z, new_z], axis=0)
             
-        recons_images = reconstruct_image(z, y_logits, [decoder]*NUM_CLUSTER, 
+        recons_images = reconstruct_image(z, y, [decoder]*NUM_CLUSTER, 
                                           BATCH_SIZE, BLOCK_PER_IMAGE, WIDTH, 
                                           HEIGHT, BLOCK_SIZE, OVERLAP)
-        comp_images = reconstruct_image(z, y_logits, decoders, BATCH_SIZE, BLOCK_PER_IMAGE, 
-                                        WIDTH, HEIGHT, BLOCK_SIZE, OVERLAP)
         recons_images = tf.cast((recons_images*255), dtype=tf.uint8)
-        comp_images = tf.cast((comp_images*255), dtype=tf.uint8)
 
-        avg_psnr += quality_evaluation(recons_images, test_images, comp_images, metric='PSNR')
-        avg_ssim += quality_evaluation(recons_images, test_images, comp_images, metric='SSIM')
-        avg_uqi += quality_evaluation(recons_images, test_images, comp_images, metric='UQI')
+        avg_psnr += quality_evaluation(recons_images, test_images, metric='PSNR')
+        avg_ssim += quality_evaluation(recons_images, test_images, metric='SSIM')
+        avg_uqi += quality_evaluation(recons_images, test_images, metric='UQI')
     print('***********************')
     print('Overall Results')
     print('PSNR: ', avg_psnr/len(test_files)*FILE_BATCH)
     print('SSIM: ', avg_ssim/len(test_files)*FILE_BATCH)
-    print('UQI: ', avg_uqi/len(test_files))
+    print('UQI: ', avg_uqi/len(test_files)*FILE_BATCH)
     print('***********************')
 
 if __name__ == '__main__':

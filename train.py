@@ -34,24 +34,26 @@ def gen_clusters(imgs, labels, num_cluster):
 def clustering(blur_images, clear_images, encoder, num_cluster, batch):
     z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder(blur_images[:batch])
     for i in range(batch, len(blur_images), batch):
-        new_z, m, sig, y, log, pm, ps = encoder(blur_images[i: i+batch])
+        new_z, m, sig, new_y, log, pm, ps = encoder(blur_images[i: i+batch])
         z = np.concatenate([z, new_z], axis=0)
-        y_logits = np.concatenate([y_logits, log], axis=0)
-    labels = np.array(cluster_latent(y_logits, batch))
+        y = np.concatenate([y, new_y], axis=0)
+    labels = np.array(cluster_latent(y, batch))
     clus = gen_clusters(blur_images, labels, num_cluster)
     label_clus = gen_clusters(clear_images, labels, num_cluster)
     return clus, label_clus
 
-def train_decoders(clus, label_clus, encoder, decoders, epochs):
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=0.001,
-        decay_steps=1000,
-        decay_rate=0.9
-    )
+def train_decoders(clus, label_clus, encoder, decoders, epochs, default_weights):
     for i in range(len(clus)):
         if len(clus[i]) > 0:
+            lr = keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=0.001,
+                decay_steps=1000,
+                decay_rate=0.9
+            )
             model_i = VAE_P(encoder, decoders[i])
-            model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
+            model_i.compile(optimizer=keras.optimizers.Adam(learning_rate=lr))
             model_i.fit((clus[i],label_clus[i]), epochs=epochs, batch_size=128, verbose=0)
+        else:
+            decoders[i].set_weights(default_weights)
     return decoders
 

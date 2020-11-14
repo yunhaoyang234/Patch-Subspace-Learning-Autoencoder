@@ -50,27 +50,27 @@ def build_encoder(latent_dim, shape, num_cluster):
                       kernel_regularizer=regularizer)(x)
     x = layers.Conv2D(72, 3, activation="relu", strides=2, padding="same",
                       kernel_regularizer=regularizer)(x)
+    x = layers.Conv2D(96, 3, activation="relu", strides=1, padding="same",
+                      kernel_regularizer=regularizer)(x)
     x = layers.Conv2D(128, 3, activation="relu", strides=1, padding="same", 
                       kernel_regularizer=regularizer)(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = layers.Flatten()(x)
+    x = layers.Dense(256, activation="relu")(x)
 
     # y probability block
-    y = layers.Dense(256, activation="relu")(x)
-    y = layers.Dense(128, activation="relu")(y)
-    y_logits = layers.Dense(num_cluster, activation="linear")(y)
-    y = gumbel_softmax(num_cluster, 1)(y_logits)
-    y = layers.Softmax()(y)
+    y_hid = layers.Dense(128, activation="relu")(x)
+    y_logits = layers.Dense(num_cluster, activation="linear")(y_hid)
+    #y = gumbel_softmax(num_cluster, 1)(y_logits)
+    y = layers.Softmax()(y_logits)
     y_logits = layers.Softmax()(y_logits)
 
     # z prior block
-    z_prior_mean = layers.Dense(latent_dim)(y)
-    z_prior_sig = layers.Dense(latent_dim, activation='softplus')(y)
+    z_prior_mean = layers.Dense(latent_dim)(y_hid)
+    z_prior_sig = layers.Dense(latent_dim, activation='softplus')(y_hid)
 
     # Sampling
-    #h_top = layers.Dense(128, activation="relu")(y)
     h = layers.Dense(128, activation="relu")(layers.Dropout(rate=0.2)(x))
-    #h = h + h_top
     z_mean = layers.Dense(latent_dim, name="z_mean")(h)
     z_sig = layers.Dense(latent_dim, activation='softplus', name="z_sig")(h)
     z = Sampling()([z_mean, z_sig])
