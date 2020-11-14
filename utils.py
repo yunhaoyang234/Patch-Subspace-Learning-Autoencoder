@@ -74,6 +74,17 @@ def crop_square(imgs, length = 3000):
         data.append(cv2.resize(img2, (length,length)))
     return data
 
+def recover_square(img1, img2, shape, length=3000):
+    h, w = shape[0], shape[1]
+    if h > w:
+        ol = np.array(np.mean([img1[:w-h+length, :], img2[h-w-length:, :]], axis=0), dtype='uint8')
+        img = np.concatenate([img2[:h-length, :], ol, img1[length-h:,:]], axis=0)
+    else:
+        ol = np.array(np.mean([img1[:, :h-w+length], img2[:, w-h-length:]], axis=0), dtype='uint8')
+        print(ol.shape, img2.shape, img1.shape)
+        img = np.concatenate([img2[:, :w-length], ol, img1[:, length-w:]], axis=1)
+    return img
+
 def gen_noise(images, x=100, y=50, z=150):
     noise = []
     for img in images:
