@@ -8,6 +8,7 @@ parser.add_argument('--block_size', type=int, default=18)
 parser.add_argument('--num_block', type=int, default=18)
 parser.add_argument('--overlap', type=int, default=4)
 parser.add_argument('--batch', type=int, default=15000)
+parser.add_argument('--file_batch', type=int, default=10)
 parser.add_argument('--latent_dim', type=int, default=60)
 parser.add_argument('--epoch', type=int, default=100)
 parser.add_argument('--num_cluster', type=int, default=4)
@@ -46,7 +47,7 @@ def main(args):
     LATENT_DIM = args.latent_dim
     EPOCH = args.epoch
     DATASET = args.dataset
-    FILE_BATCH = 2
+    FILE_BATCH = args.file_batch
 
     '''
     Load Images
@@ -90,7 +91,7 @@ def main(args):
 
         encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH, lr_schedule)
         clus, label_clus = clustering(noise_images, clear_images, encoder, NUM_CLUSTER, BATCH_SIZE)
-        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), fb==0)
+        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), NUM_CLUSTER==1)
 
     # save_models(encoder, decoder, decoders, DATASET + '/')
 
