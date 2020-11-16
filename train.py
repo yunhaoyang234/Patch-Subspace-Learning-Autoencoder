@@ -35,15 +35,17 @@ def clustering(blur_images, clear_images, encoder, num_cluster, batch):
     z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder(blur_images[:batch])
     for i in range(batch, len(blur_images), batch):
         new_z, m, sig, new_y, log, pm, ps = encoder(blur_images[i: i+batch])
-        z = np.concatenate([z, new_z], axis=0)
+        #z = np.concatenate([z, new_z], axis=0)
         y = np.concatenate([y, new_y], axis=0)
     labels = np.array(cluster_latent(y, batch))
     clus = gen_clusters(blur_images, labels, num_cluster)
     label_clus = gen_clusters(clear_images, labels, num_cluster)
     return clus, label_clus
 
-def train_decoders(clus, label_clus, encoder, decoders, epochs, default_weights):
+def train_decoders(clus, label_clus, encoder, decoders, epochs, default_weights, init_):
     for i in range(len(clus)):
+        if init_:
+            decoders[i].set_weights(default_weights)
         if len(clus[i]) > 0:
             lr = keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=0.001,

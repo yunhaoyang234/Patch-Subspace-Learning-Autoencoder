@@ -90,7 +90,7 @@ def main(args):
 
         encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH, lr_schedule)
         clus, label_clus = clustering(noise_images, clear_images, encoder, NUM_CLUSTER, BATCH_SIZE)
-        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights())
+        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), fb==0)
 
     # save_models(encoder, decoder, decoders, DATASET + '/')
 

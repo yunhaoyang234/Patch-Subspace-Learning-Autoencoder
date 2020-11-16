@@ -62,7 +62,8 @@ def build_encoder(latent_dim, shape, num_cluster):
     y_hid = layers.Dense(128, activation="relu")(x)
     y_logits = layers.Dense(num_cluster, activation="linear")(y_hid)
     #y = gumbel_softmax(num_cluster, 1)(y_logits)
-    y = layers.Softmax()(y_logits)
+    y = layers.Dense(num_cluster, activation="linear")(y_hid)
+    y = layers.Softmax()(y)
     y_logits = layers.Softmax()(y_logits)
 
     # z prior block
