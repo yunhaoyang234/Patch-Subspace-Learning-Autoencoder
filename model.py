@@ -67,8 +67,8 @@ def build_encoder(latent_dim, shape, num_cluster):
     y_logits = layers.Softmax()(y_logits)
 
     # z prior block
-    z_prior_mean = layers.Dense(latent_dim)(y_hid)
-    z_prior_sig = layers.Dense(latent_dim, activation='softplus')(y_hid)
+    z_prior_mean = layers.Dense(latent_dim)(y)
+    z_prior_sig = layers.Dense(latent_dim, activation='softplus')(y)
 
     # Sampling
     h = layers.Dense(128, activation="relu")(layers.Dropout(rate=0.2)(x))
