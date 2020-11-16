@@ -158,10 +158,8 @@ class VAE_P(keras.Model):
             reconstruction_loss = tf.reduce_mean(
                 tf.keras.losses.MSE(test, reconstruction))
             reconstruction_loss *= shape[0] * shape[1]
-            kl_loss = 1 + z_sig - tf.square(z_mean) - tf.exp(z_sig)
-            kl_loss = tf.reduce_mean(kl_loss)
-            kl_loss *= -0.5
-            total_loss = reconstruction_loss + kl_loss
+            
+            total_loss = reconstruction_loss
         
         grads = tape.gradient(total_loss, self.trained_decoder.trainable_weights)
         self.optimizer.apply_gradients(zip(grads, self.trained_decoder.trainable_weights))
