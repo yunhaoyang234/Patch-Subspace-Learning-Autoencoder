@@ -42,7 +42,7 @@ def clustering(blur_images, clear_images, encoder, num_cluster, batch):
     label_clus = gen_clusters(clear_images, labels, num_cluster)
     return clus, label_clus
 
-def train_decoders(clus, label_clus, encoder, decoders, epochs, default_weights, init_):
+def train_decoders(clus, label_clus, encoder, decoders, epochs, default_weights, init_=False):
     for i in range(len(clus)):
         if init_:
             decoders[i].set_weights(default_weights)
