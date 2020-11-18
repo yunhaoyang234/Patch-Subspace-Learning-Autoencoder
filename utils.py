@@ -11,10 +11,15 @@ import tensorflow as tf
 import cv2
 import os
 import glob
+import torch
+import torchvision
 from keras.layers import Input, Dense, Lambda
 
 cwd = ''
 
+'''
+PREPROCESSING: LOAD DATASET
+'''
 def load_celeb_images(file_path):
     raw_image_dataset = tf.data.TFRecordDataset(file_path)
 
@@ -85,6 +90,20 @@ def recover_square(img1, img2, shape, length=3000):
         img = np.concatenate([img2[:, :w-length], ol, img1[:, length-w:]], axis=1)
     return img
 
+def sidd_test_data(path, key, batch):
+    import scipy.io
+    mat = scipy.io.loadmat(path)
+    tmp = mat.get(key)
+    images = []
+    for i in range(batch*10,batch*10+10):
+        for j in range(32):
+            images.append(cv2.resize(tmp[i][j],(248,248)))
+    imgs = np.array(images)
+    return images
+
+'''
+PREPROCESSING: GENERATE TRAINGING AND VALIDATION DATA
+'''
 def gen_noise(images, x=100, y=50, z=150):
     noise = []
     for img in images:
@@ -110,12 +129,34 @@ def gen_noise(images, x=100, y=50, z=150):
         noise.append(noise_image)
     return noise
 
+def gen_blur(images, x=50, y=150, z=200):
+    noise = []
+    for img in images:
+        noise_image = np.copy(img)
+        def get_random():
+            p = random.randint(0, x)
+            q = random.randint(0, x)
+            h = random.randint(y, z)
+            w = random.randint(y, z)
+            return p, q, h, w
+
+        p, q, h, w = get_random()
+        noise_img = cv2.GaussianBlur(noise_image[p:p+w, q:q+h],(11,11),0)
+        noise_image[p:p+w, q:q+h] = np.array(noise_img, dtype = 'uint8')
+
+        p, q, h, w = get_random()
+        noise_img = cv2.medianBlur(noise_image[p:p+w, q:q+h],5)
+        noise_image[p:p+w, q:q+h] = np.array(noise_img, dtype = 'uint8')
+
+        p, q, h, w = get_random()
+        noise_img = cv2.bilateralFilter(noise_image[p:p+w, q:q+h],15,75,75)
+        noise_image[p:p+w, q:q+h] = np.array(noise_img, dtype = 'uint8')
+        noise.append(noise_image)
+    return noise
+
 def divide_img(img, block_size=18, num_block=18, overlap=4):
     height = len(img)
     width = len(img[0])
-    #print("block_size: " + str(block_size))
-    #print("num_block: " + str(num_block))
-    #print("overlap: " + str(overlap))
     if not (block_size*num_block - (num_block - 1)*overlap == height):
         raise ValueError('Block size mismatch', block_size*num_block - (num_block - 1)*overlap, height)
     size = block_size - overlap
@@ -178,6 +219,9 @@ def gen_zurich_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap)
         noise_images = np.concatenate([noise_images, blur_blocks])
     return clear_images[1:]/255, noise_images[1:]
 
+'''
+DECODE AND RECONSTRUCT IMAGES
+'''
 def decode_images(z, labels, decoders):
     decoded_images = []
     decode = []
@@ -188,27 +232,24 @@ def decode_images(z, labels, decoders):
         decoded_images.append(decode_img)
     return decoded_images
 
-def reconstruct_image(z, y, decoders, batch_size, block_per_image, width, height, block_size, overlap):
+def reconstruct_image(z, y, decoders, block_per_image, width, height, block_size, overlap):
     from train import cluster_latent
     recons_images = []
-    labels = cluster_latent(y, batch_size)
-    decoded_images = decode_images(z[:batch_size], labels[:batch_size], decoders)
+    labels = cluster_latent(y)
+    decoded_images = decode_images(z, labels, decoders)
     blocks = decoded_images[: block_per_image]
     image = merge_img(blocks, width, height, block_size, overlap)
     recons_images = tf.convert_to_tensor([image], np.float32)
 
-    for i in range(batch_size, len(z), batch_size):
-      decoded_images = np.concatenate([decoded_images, 
-                                       decode_images(z[i:i+batch_size], 
-                                                     labels[i:i+batch_size], 
-                                                     decoders)], 
-                                      axis=0)
     for i in range(block_per_image, len(decoded_images), block_per_image):
         blocks = decoded_images[i: i+block_per_image]
         image = merge_img(blocks, width, height, block_size, overlap)
         recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
     return recons_images
 
+'''
+SAVE AND LOAD MODEL
+'''
 def save_models(encoder, decoder, decoders, file_path):
     encoder.save(cwd + file_path + 'encoder')
     decoder.save(cwd + file_path + 'encoder')
@@ -224,4 +265,22 @@ def load_models(file_path):
         decoders.append(keras.models.load_model(f))
     return encoder, decoder, decoders
 
+'''
+PLOT IMAGES
+'''
+def get_image_grid(images_np, nrow=8):
+    images_torch = [torch.from_numpy(x) for x in images_np]
+    torch_grid = torchvision.utils.make_grid(images_torch, nrow)
+    return torch_grid.numpy()
 
+def plot_image_grid(images_np, nrow =8, factor=20, interpolation='lanczos'):
+    images_np = np.swapaxes(np.swapaxes(images_np, 1, 3), 2,3)
+    n_channels = max(x.shape[0] for x in images_np)
+    images_np = [x if (x.shape[0] == n_channels) else np.concatenate([x, x, x], axis=0) for x in images_np]
+    grid = get_image_grid(images_np, nrow)
+    plt.figure(figsize=(len(images_np) + factor, 12 + factor))
+    if images_np[0].shape[0] == 1:
+        plt.imshow(grid[0], cmap='gray', interpolation=interpolation)
+    else:
+        plt.imshow(grid.transpose(1, 2, 0), interpolation=interpolation)
+    plt.show()

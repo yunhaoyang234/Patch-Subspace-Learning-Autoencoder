@@ -1,4 +1,5 @@
-# autoencoder-clustering
+# Patch Subspace Variational Autoencoder (PS-VAE)
+Code for reproducing results in **Learning Latent Subspaces in Camera ISP Variational Autoencoders**.
 
 ## Requirements:
 See requirement.txt\
@@ -6,26 +7,59 @@ Run
 `pip install -r requirement.txt` \
 GPU is required
 
-## Dataset:
-Run\
-`wget https://storage.googleapis.com/glow-demo/data/celeba-tfr.tar` \
-`tar -xvf celeb-tfr.tar` \
-Please put the dataset in the same directory with the code
+## Datasets:
+- `CelebA` - 4GB. CelebA-HQ 256x256 dataset.
+- `SIDD-Medium Dataset` - 12GB. Smartphone Image Denoising Dataset consists of 320 image pairs (noisy and ground-truth). Download from [here](https://www.eecs.yorku.ca/~kamel/sidd/dataset.php)
+- `Zurich` - 22GB. Zurich RAW to RGB dataset. [here](https://docs.google.com/forms/d/e/1FAIpQLSdH6Pqdlu0pk2vGZlazqoRYwWsxN3nsLFwYY6Zc5-RUjw3SdQ/viewform)
 
-## Python Files:
-main.py: Patch Pased Gaussian Mixture Variational Autoencoder
+Please put the decompressed datasets in the same directory with the code during experiments, otherwise please set **cwd** in utils.py to the file directory where the datasets locate at.
+
+## Experiments:
+#### CelebA Denoising Experiment
 ```bash
-$ python3 main.py \
-    	--batch 10000\
-    	--epoch 100\
-    	--num_cluster 4\
+$ python3 experiment_celeba.py \
+          --file_batch 5\
+          --epoch 50\
+          --latent_dim 96\
+    	  --num_filter 4\
+    	  --train_files_path "celeba_train(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_files_path "celeba_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
 ```
 
-autoencoder.py + ae.py: Convolutional Autoencoder with soft clustering\
-Run `python ae.py` \
+#### SIDD Denoising Experiment
+```bash
+$ python3 experiment_sidd_denoise.py \
+          --file_batch 5\
+          --epoch 25\
+          --latent_dim 96\
+    	  --num_filter 3\
+    	  --train_files_path "sidd_noise(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --validation_file_path "sidd_ground_truth(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_files_path "sidd_test_noise(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_validation_files_path "sidd_test_GT(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  
+```
 
-vae.py: Variational Autoencoder with soft clustering\
-Run `python vae.py` \
+#### Zurich Raw to sRGB Experiment
+```bash
+$ python3 experiment_zurich.py \
+          --file_batch 100\
+          --epoch 50\
+          --latent_dim 128\
+    	  --num_filter 2\
+    	  --train_files_path "Zurich_RAW(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --validation_file_path "Zurich_sRGB(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_files_path "Zurich_RAW_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_validation_files_path "Zurich_sRBG_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  
+```
 
-## Report
-See ae_clustering_report.pdf
+#### Reconstruct Full-Resolution sRGB Image
+Please run *Zurich Raw to sRGB Experiment* first to obtain a saved model.
+```bash
+$ python3 zurich_raw_to_rgb.py \
+    	  --input_files_path "Zurich_RAW_full_resolution(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --output_files_path "Zurich_sRGB_full_resolution(REPLACE THIS WITH YOUR DESIRED FILE DIRECTORY)/"\
+    	  
+```
+

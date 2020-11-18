@@ -7,3 +7,6 @@ sewar==0.4.4
 opencv_python==4.1.2
 keras==2.3.0
 scikit-image==0.16.2
+imageio==2.9.0
+torchvision==0.1.8
+torch==1.7.0

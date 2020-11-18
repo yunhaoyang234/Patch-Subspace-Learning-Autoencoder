@@ -86,6 +86,8 @@ def build_decoder(latent_dim, shape, name):
     x = layers.Reshape((shape[0]//4, shape[1]//4, 256))(x)
     x = layers.Conv2DTranspose(128, 3, activation="relu", strides=1, 
                               kernel_regularizer=regularizer, padding="same")(x)
+    x = layers.Conv2DTranspose(96, 3, activation="relu", strides=1, 
+                              kernel_regularizer=regularizer, padding="same")(x)
     x = layers.Conv2DTranspose(72, 3, activation="relu", strides=2,
                               kernel_regularizer=regularizer, padding="same")(x)
     x = layers.Conv2DTranspose(48, 3, activation="relu", strides=1,
@@ -105,9 +107,9 @@ def build_decoder(latent_dim, shape, name):
 def kl_divergence_two_gauss(mean1,sig1,mean2,sig2):
     return tf.reduce_mean(tf.reduce_mean(tf.math.log(sig2) - tf.math.log(sig1) + ((tf.math.square(sig1) + tf.math.square(mean1-mean2)) / (2*tf.math.square(sig2))) - 0.5, axis=1))
 
-class VAE(keras.Model):
+class PSVAE_Encoder(keras.Model):
     def __init__(self, encoder, decoder, num_cluster, shape, **kwargs):
-        super(VAE, self).__init__(**kwargs)
+        super(PSVAE_Encoder, self).__init__(**kwargs)
         self.encoder = encoder
         self.decoder = decoder
         self.num_cluster = num_cluster
@@ -139,9 +141,9 @@ class VAE(keras.Model):
             "y_kl_loss": y_kl_loss,
         }
 
-class VAE_P(keras.Model):
+class PSVAE_Decoder(keras.Model):
     def __init__(self, encoder, decoder, **kwargs):
-        super(VAE_P, self).__init__(**kwargs)
+        super(PSVAE_Decoder, self).__init__(**kwargs)
         self.encoder = encoder
         self.trained_decoder = decoder
 

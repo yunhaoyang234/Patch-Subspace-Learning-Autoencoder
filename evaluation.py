@@ -8,6 +8,10 @@ def original_psnr(blur_imgs):
         psnr += cv2.PSNR(blur_imgs[b], images[b])
     print('Initial PSNR', psnr/len(blur_imgs))
 
+def ms_ssim(recons_images, test_images):
+    ms = tf.reduce_mean(tf.image.ssim_multiscale(test_images, recons_images, 255, k1=0.01, k2=0.07))
+    return ms
+
 def quality_evaluation(recons_images, test_images, metric='PSNR'):
     cnt = 0
     recons = []
