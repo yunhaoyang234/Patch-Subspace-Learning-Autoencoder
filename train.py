@@ -1,13 +1,12 @@
 from model import *
 from utils import *
 
-lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate=0.001,
-    decay_steps=1000,
-    decay_rate=0.9
-)
-
 def train_encoder(noise_images, clear_images, encoder, decoder, num_cluster, shape, epoch):
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=0.001,
+        decay_steps=1000,
+        decay_rate=0.9
+    )
     model = PSVAE_Encoder(encoder, decoder, num_cluster, shape)
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr_schedule))
     model.fit((noise_images,clear_images), epochs=epoch, batch_size=128, verbose=0)
