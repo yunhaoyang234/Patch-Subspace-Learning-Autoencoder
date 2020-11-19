@@ -23,7 +23,7 @@ $ python3 experiment_celeba.py \
           --latent_dim 96\
     	  --num_filter 4\
     	  --train_files_path "celeba_train(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
-    	  --test_files_path "celeba_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_files_path "celeba_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
 ```
 
 #### SIDD Denoising Experiment
@@ -36,7 +36,7 @@ $ python3 experiment_sidd_denoise.py \
     	  --train_files_path "sidd_noise(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
     	  --validation_file_path "sidd_ground_truth(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
     	  --test_files_path "sidd_test_noise(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
-    	  --test_validation_files_path "sidd_test_GT(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_validation_files_path "sidd_test_GT(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
     	  
 ```
 
@@ -50,7 +50,7 @@ $ python3 experiment_zurich.py \
     	  --train_files_path "Zurich_RAW(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
     	  --validation_file_path "Zurich_sRGB(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
     	  --test_files_path "Zurich_RAW_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
-    	  --test_validation_files_path "Zurich_sRBG_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
+    	  --test_validation_files_path "Zurich_sRBG_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
     	  
 ```
 
@@ -59,7 +59,7 @@ Please run *Zurich Raw to sRGB Experiment* first to obtain a saved model.
 ```bash
 $ python3 zurich_raw_to_rgb.py \
     	  --input_files_path "Zurich_RAW_full_resolution(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
-    	  --output_files_path "Zurich_sRGB_full_resolution(REPLACE THIS WITH YOUR DESIRED FILE DIRECTORY)/"\
+    	  --output_files_path "Zurich_sRGB_full_resolution(REPLACE THIS WITH YOUR DESIRED FILE DIRECTORY)/"
     	  
 ```
 
