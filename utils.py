@@ -258,20 +258,18 @@ def reconstruct_image(z, y, decoders, block_per_image, width, height, block_size
 '''
 SAVE AND LOAD MODEL
 '''
-def save_models(encoder, decoder, decoders, file_path):
+def save_models(encoder, decoders, file_path):
     encoder.save(cwd + file_path + 'encoder')
-    decoder.save(cwd + file_path + 'encoder')
     for i in range(len(decoders)):
-        decoders[i].save(cwd + file_path + 'encoder' + str(i))
+        decoders[i].save(cwd + file_path + 'decoder' + str(i))
 
 def load_models(file_path):
     encoder = keras.models.load_model(cwd + file_path + 'encoder')
-    decoder = keras.models.load_model(cwd + file_path + 'decoder')
     decoders = []
     files = sorted(glob.glob(cwd + file_path + '*'))
     for f in files:
         decoders.append(keras.models.load_model(f))
-    return encoder, decoder, decoders
+    return encoder, decoders
 
 '''
 PLOT IMAGES

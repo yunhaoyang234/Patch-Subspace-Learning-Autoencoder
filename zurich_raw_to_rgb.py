@@ -31,7 +31,7 @@ def main(args):
     SHAPE = (BLOCK_SIZE, BLOCK_SIZE, 3)
     DATASET = 'zurich'
     
-    encoder, decoder, decoders = load_models(DATASET + 'model/')
+    encoder, decoders = load_models(DATASET + 'model/')
 
     files = glob.glob(cwd + args.input_files_path + '*')
     for i in range(len(files)):

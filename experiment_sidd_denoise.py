@@ -81,14 +81,14 @@ def main(args):
 
         encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH)
         clus, label_clus = clustering(noise_images, clear_images, encoder, NUM_CLUSTER)
-        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), fb==0)
+        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights())
 
-    save_models(encoder, decoder, decoders, DATASET + 'denoise_model/')
+    save_models(encoder, decoders, DATASET + 'denoise_model/')
 
     '''
     Evaluation
     '''
-    # encoder, decoder, decoders = load_models(DATASET + 'denoise_model/')
+    # encoder, decoders = load_models(DATASET + 'denoise_model/')
     avg_psnr, avg_ssim, avg_uqi = 0, 0, 0
     for i in range(4):
         clear_images = sidd_test_data(args.test_files_path, 'ValidationGtBlocksSrgb', i)

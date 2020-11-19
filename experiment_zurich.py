@@ -70,14 +70,14 @@ def main(args):
        
         encoder, decoder = train_encoder(raw_images, rgb_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH)
         clus, label_clus = clustering(raw_images, rgb_images, encoder, NUM_CLUSTER)
-        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), fb==0)
+        decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights())
 
-    save_models(encoder, decoder, decoders, DATASET + 'model/')
+    save_models(encoder, decoders, DATASET + 'model/')
 
     '''
     Evaluation
     '''
-    # encoder, decoder, decoders = load_models(DATASET + 'model/')
+    # encoder, decoders = load_models(DATASET + 'model/')
 
     files = glob.glob(cwd + args.test_files_path + '*')
     test_files = [cwd + args.test_files_path + str(i) + '.png' for i in range(len(files))]
