@@ -13,13 +13,6 @@ def train_encoder(noise_images, clear_images, encoder, decoder, num_cluster, sha
     model.fit((noise_images,clear_images), epochs=epoch, batch_size=128, verbose=0)
     return encoder, decoder
 
-def cluster_latent(y):
-    labels = []
-    y_ = np.array(y)
-    for j in y_:
-        labels.append(np.argmax(j))
-    return labels
-
 def gen_clusters(imgs, labels, num_cluster):
     clusters = []
     for label in range(num_cluster):
@@ -30,10 +23,15 @@ def gen_clusters(imgs, labels, num_cluster):
         clusters[i] = np.array(clusters[i])
     return clusters
 
-def clustering(noise_images, clear_images, encoder, num_cluster):
-    z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder(noise_images)
-    labels = np.array(cluster_latent(y))
-    clus = gen_clusters(noise_images, labels, num_cluster)
+def clustering(blur_images, clear_images, encoder, num_cluster):
+    batch=10000
+    z, z_mean, z_sig, y, y_logits, z_prior_mean, z_prior_sig = encoder(blur_images[:batch])
+    for i in range(batch, len(blur_images), batch):
+        new_z, m, sig, new_y, log, pm, ps = encoder(blur_images[i: i+batch])
+        z = np.concatenate([z, new_z], axis=0)
+        y = np.concatenate([y, new_y], axis=0)
+    labels = np.array(cluster_latent(y, batch))
+    clus = gen_clusters(blur_images, labels, num_cluster)
     label_clus = gen_clusters(clear_images, labels, num_cluster)
     return clus, label_clus
 

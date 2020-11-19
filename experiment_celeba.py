@@ -36,7 +36,6 @@ def main(args):
     SHAPE = (BLOCK_SIZE, BLOCK_SIZE, 3)
     LATENT_DIM = args.latent_dim
     EPOCH = args.epoch
-    DATASET = args.dataset
     FILE_BATCH = args.file_batch
     DATASET = 'celeba'
 
@@ -65,7 +64,7 @@ def main(args):
         clear_images, noise_images = gen_train_set(clear_images, noise_images, SHAPE,
                                                    BLOCK_SIZE, NUM_BLOCK, OVERLAP)
 
-        encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH, lr_schedule)
+        encoder, decoder = train_encoder(noise_images, clear_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH)
         clus, label_clus = clustering(noise_images, clear_images, encoder, NUM_CLUSTER)
         decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), fb==0)
 

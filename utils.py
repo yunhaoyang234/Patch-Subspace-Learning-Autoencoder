@@ -222,6 +222,14 @@ def gen_zurich_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap)
 '''
 DECODE AND RECONSTRUCT IMAGES
 '''
+def cluster_latent(y, batch=10000):
+    labels = []
+    for i in range(0, len(y), batch):
+        y_ = np.array(y[i:i+batch])
+        for j in y_:
+            labels.append(np.argmax(j))
+    return labels
+
 def decode_images(z, labels, decoders):
     decoded_images = []
     decode = []

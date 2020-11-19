@@ -51,7 +51,7 @@ def main(args):
     '''
     Build Networks
     '''
-    encoder = build_encoder(LATENT_DIM, SHAPE, NUM_CLUSTER)
+    encoder = build_encoder(LATENT_DIM, (SHAPE[0]//2, SHAPE[1]//2, 4), NUM_CLUSTER)
     decoder = build_decoder(LATENT_DIM, SHAPE, 'decoder')
     decoders = [build_decoder(LATENT_DIM, SHAPE,"decoder"+str(i)) for i in range(NUM_CLUSTER)]
 
@@ -68,7 +68,7 @@ def main(args):
         rgb_images, raw_images = gen_zurich_set(rgb_images, raw_images, SHAPE,
                                                     BLOCK_SIZE, NUM_BLOCK, OVERLAP)
        
-        encoder, decoder = train_encoder raw_images, rgb_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH, lr_schedule)
+        encoder, decoder = train_encoder(raw_images, rgb_images, encoder, decoder, NUM_CLUSTER, SHAPE, EPOCH)
         clus, label_clus = clustering(raw_images, rgb_images, encoder, NUM_CLUSTER)
         decoders = train_decoders(clus, label_clus, encoder, decoders, EPOCH, decoder.get_weights(), fb==0)
 
