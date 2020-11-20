@@ -40,7 +40,7 @@ $ python3 experiment_sidd_denoise.py \
     	  --test_validation_files_path "sidd_test_GT(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
     	  
 ```
-The reconstruction quality of test data evaluated by PSNR, SSIM, and UQI will be printed out, and the trained model will be saved to the current working directory.
+The denoisng quality of the SIDD Benchmark images evaluated by PSNR, SSIM, and UQI will be printed out, and the trained model will be saved to the current working directory.
 
 #### Zurich Raw to sRGB Experiment
 ```bash
@@ -65,5 +65,5 @@ $ python3 zurich_raw_to_rgb.py \
     	  --output_files_path "Zurich_sRGB_full_resolution(REPLACE THIS WITH YOUR DESIRED FILE DIRECTORY)/"
     	  
 ```
-The reconstructed full-resolution RGB images will be displayed.
+The reconstructed full-resolution RGB images will be stored to the directory defined by output_file_path.
 
