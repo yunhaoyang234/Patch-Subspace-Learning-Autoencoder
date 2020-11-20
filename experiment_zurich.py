@@ -51,9 +51,9 @@ def main(args):
     '''
     Build Networks
     '''
-    encoder = build_encoder(LATENT_DIM, (SHAPE[0]//2, SHAPE[1]//2, 4), NUM_CLUSTER)
-    decoder = build_decoder(LATENT_DIM, SHAPE, 'decoder')
-    decoders = [build_decoder(LATENT_DIM, SHAPE,"decoder"+str(i)) for i in range(NUM_CLUSTER)]
+    encoder = build_raw2rgb_encoder(LATENT_DIM, (SHAPE[0]//2, SHAPE[1]//2, 4), NUM_CLUSTER)
+    decoder = build_raw2rgb_decoder(LATENT_DIM, SHAPE, 'decoder')
+    decoders = [build_raw2rgb_decoder(LATENT_DIM, SHAPE,"decoder"+str(i)) for i in range(NUM_CLUSTER)]
 
     '''
     Train Network

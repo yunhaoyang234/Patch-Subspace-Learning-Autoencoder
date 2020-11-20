@@ -8,7 +8,7 @@ Run
 GPU is required
 
 ## Datasets:
-- `CelebA` - 4GB. CelebA-HQ 256x256 dataset.
+- `CelebA` - 4GB. CelebA-HQ 256x256 dataset. Downloaded from [here](https://openaipublic.azureedge.net/glow-demo/data/celeba-tfr.tar)
 - `SIDD-Medium Dataset` - 12GB. Smartphone Image Denoising Dataset consists of 320 image pairs (noisy and ground-truth). Download from [here](https://www.eecs.yorku.ca/~kamel/sidd/dataset.php)
 - `Zurich` - 22GB. Zurich RAW to RGB dataset. [here](https://docs.google.com/forms/d/e/1FAIpQLSdH6Pqdlu0pk2vGZlazqoRYwWsxN3nsLFwYY6Zc5-RUjw3SdQ/viewform)
 
@@ -25,6 +25,7 @@ $ python3 experiment_celeba.py \
     	  --train_files_path "celeba_train(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"\
     	  --test_files_path "celeba_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
 ```
+The reconstruction quality of test data evaluated by PSNR, SSIM, and UQI will be printed out, and the trained model will be saved to the current working directory.
 
 #### SIDD Denoising Experiment
 ```bash
@@ -39,6 +40,7 @@ $ python3 experiment_sidd_denoise.py \
     	  --test_validation_files_path "sidd_test_GT(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
     	  
 ```
+The reconstruction quality of test data evaluated by PSNR, SSIM, and UQI will be printed out, and the trained model will be saved to the current working directory.
 
 #### Zurich Raw to sRGB Experiment
 ```bash
@@ -53,6 +55,7 @@ $ python3 experiment_zurich.py \
     	  --test_validation_files_path "Zurich_sRBG_test(REPLACE THIS WITH YOUR OWN FILE DIRECTORY)/"
     	  
 ```
+The reconstruction quality of test data evaluated by PSNR, and Multi-Scale SSIM will be printed out, and the trained model will be saved to the current working directory.
 
 #### Reconstruct Full-Resolution sRGB Image
 Please run *Zurich Raw to sRGB Experiment* first to obtain a saved model.
@@ -62,4 +65,5 @@ $ python3 zurich_raw_to_rgb.py \
     	  --output_files_path "Zurich_sRGB_full_resolution(REPLACE THIS WITH YOUR DESIRED FILE DIRECTORY)/"
     	  
 ```
+The reconstructed full-resolution RGB images will be displayed.
 

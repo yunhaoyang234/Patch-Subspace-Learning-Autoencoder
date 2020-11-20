@@ -268,7 +268,8 @@ def load_models(file_path):
     decoders = []
     files = sorted(glob.glob(cwd + file_path + '*'))
     for f in files:
-        decoders.append(keras.models.load_model(f))
+        if 'decoder' in f:
+            decoders.append(keras.models.load_model(f))
     return encoder, decoders
 
 '''
