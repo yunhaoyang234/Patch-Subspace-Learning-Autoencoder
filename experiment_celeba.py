@@ -7,6 +7,7 @@ parser.add_argument('--gpu', type=bool, default=True)
 parser.add_argument('--block_size', type=int, default=16)
 parser.add_argument('--num_block_per_row', type=int, default=21)
 parser.add_argument('--overlap', type=int, default=4)
+parser.add_argument('--use_pretrain', type=int, default=1)
 parser.add_argument('--file_batch', type=int, default=5)
 parser.add_argument('--latent_dim', type=int, default=96)
 parser.add_argument('--epoch', type=int, default=50)
@@ -31,6 +32,7 @@ def main(args):
     BLOCK_SIZE = args.block_size
     NUM_BLOCK = args.num_block_per_row
     BLOCK_PER_IMAGE = NUM_BLOCK * NUM_BLOCK
+    PRETRAIN = args.use_pretrain
     OVERLAP = args.overlap
     NUM_CLUSTER = args.num_filter
     SHAPE = (BLOCK_SIZE, BLOCK_SIZE, 3)
@@ -55,6 +57,12 @@ def main(args):
     Train Network
     '''
     for fb in range(0, len(train_files), FILE_BATCH):
+        if PRETRAIN != 0:
+            if NUM_CLUSTER==1:
+                encoder, decoders = load_models('pretrained models/' + DATASET + '_single_filter/')
+            elif NUM_CLUSTER == 4:
+                encoder, decoders = load_models('pretrained models/' + DATASET + '_multi_filter/')
+            break
         train = train_files[fb:fb+FILE_BATCH]
         clear_images = [load_celeb_images(train[i]) for i in range(FILE_BATCH)]
         clear_images = np.concatenate(clear_images, axis=0)
