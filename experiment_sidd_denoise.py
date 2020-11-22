@@ -13,7 +13,6 @@ parser.add_argument('--epoch', type=int, default=25)
 parser.add_argument('--num_filter', type=int, default=4)
 parser.add_argument('--train_files_path', type=str, default='')
 parser.add_argument('--test_files_path', type=str, default='')
-parser.add_argument('--validation_files_path', type=str, default='')
 parser.add_argument('--test_validation_files_path', type=str, default='')
 
 from train import *
@@ -90,10 +89,12 @@ def main(args):
     '''
     # encoder, decoders = load_models(DATASET + 'denoise_model/')
     avg_psnr, avg_ssim, avg_uqi = 0, 0, 0
-    for i in range(4):
-        clear_images = sidd_test_data(args.test_files_path, 'ValidationGtBlocksSrgb', i)
+    BATCH = 4
+    NUM_BLOCK = 15
+    for i in range(BATCH):
+        clear_images = sidd_test_data(args.test_validation_files_path, 'ValidationGtBlocksSrgb', i)
         test_images = np.array(clear_images)
-        noise_images = sidd_test_data(args.test_validation_files_path, 'ValidationNoisyBlocksSrgb', i)
+        noise_images = sidd_test_data(args.test_files_path, 'ValidationNoisyBlocksSrgb', i)
         WIDTH = len(clear_images[0][0])
         HEIGHT = len(clear_images[0])
 
@@ -111,9 +112,9 @@ def main(args):
         avg_uqi += quality_evaluation(recons_images, test_images, metric='UQI')
     print('***********************')
     print('Overall Results')
-    print('PSNR: ', avg_psnr/len(test_files)*FILE_BATCH)
-    print('SSIM: ', avg_ssim/len(test_files)*FILE_BATCH)
-    print('UQI: ', avg_uqi/len(test_files)*FILE_BATCH)
+    print('PSNR: ', avg_psnr/BATCH)
+    print('SSIM: ', avg_ssim/BATCH)
+    print('UQI: ', avg_uqi/BATCH)
     print('***********************')
 
 if __name__ == '__main__':

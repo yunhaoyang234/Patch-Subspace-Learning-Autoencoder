@@ -106,7 +106,7 @@ def main(args):
     print('***********************')
     print('Overall Results')
     print('PSNR: ', avg_psnr/len(test_files)*FILE_BATCH)
-    print('SSIM: ', avg_ssim/len(test_files)*FILE_BATCH)
+    tf.print('SSIM: ', avg_ssim/len(test_files)*FILE_BATCH)
     print('***********************')
 
 if __name__ == '__main__':

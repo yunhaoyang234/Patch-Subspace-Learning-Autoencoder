@@ -4,7 +4,7 @@ scipy==1.4.1
 numpy==1.18.5
 scikit-learn==0.22.2
 sewar==0.4.4
-opencv_python==4.1.2
+opencv_python==4.1.2.30
 keras==2.3.0
 scikit-image==0.16.2
 imageio==2.9.0

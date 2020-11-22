@@ -13,6 +13,7 @@ import os
 import glob
 import torch
 import torchvision
+import imageio
 from keras.layers import Input, Dense, Lambda
 
 cwd = ''
@@ -98,7 +99,6 @@ def sidd_test_data(path, key, batch):
     for i in range(batch*10,batch*10+10):
         for j in range(32):
             images.append(cv2.resize(tmp[i][j],(248,248)))
-    imgs = np.array(images)
     return images
 
 '''
