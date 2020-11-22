@@ -85,15 +85,15 @@ def build_raw2rgb_encoder(latent_dim, shape, num_cluster):
     # x convolutional block
     x = layers.Conv2D(16, 3, activation="relu", strides=1, padding="same", 
                       kernel_regularizer=regularizer)(x)
-    x = layers.Conv2D(32, 3, activation="relu", strides=2, padding="same",
+    x = layers.Conv2D(32, 3, activation="relu", strides=1, padding="same",
                       kernel_regularizer=regularizer)(x)
-    x = layers.Conv2D(48, 3, activation="relu", strides=1, padding="same", 
+    x = layers.Conv2D(48, 3, activation="relu", strides=2, padding="same", 
                       kernel_regularizer=regularizer)(x)
     x = layers.Conv2D(64, 3, activation="relu", strides=1, padding="same", 
                       kernel_regularizer=regularizer)(x)
-    x = layers.Conv2D(72, 3, activation="relu", strides=2, padding="same",
+    x = layers.Conv2D(72, 3, activation="relu", strides=1, padding="same",
                       kernel_regularizer=regularizer)(x)
-    x = layers.Conv2D(96, 3, activation="relu", strides=1, padding="same",
+    x = layers.Conv2D(96, 3, activation="relu", strides=2, padding="same",
                       kernel_regularizer=regularizer)(x)
     x = layers.Conv2D(128, 3, activation="relu", strides=1, padding="same", 
                       kernel_regularizer=regularizer)(x)
@@ -135,8 +135,6 @@ def build_decoder(latent_dim, shape, name):
                               kernel_regularizer=regularizer, padding="same")(x)
     x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2,
                               kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(16, 3, activation="relu", strides=1, 
-                              kernel_regularizer=regularizer, padding="same")(x)
     output = layers.Conv2DTranspose(shape[2], 3, 
                                     activation="sigmoid", 
                                     kernel_regularizer=regularizer, 
@@ -151,17 +149,15 @@ def build_raw2rgb_decoder(latent_dim, shape, name):
     x = layers.Reshape((shape[0]//4, shape[1]//4, 256))(x)
     x = layers.Conv2DTranspose(128, 3, activation="relu", strides=1, 
                               kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(96, 3, activation="relu", strides=1, 
+    x = layers.Conv2DTranspose(96, 3, activation="relu", strides=2, 
                               kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(72, 3, activation="relu", strides=2,
+    x = layers.Conv2DTranspose(72, 3, activation="relu", strides=1,
                               kernel_regularizer=regularizer, padding="same")(x)
     x = layers.Conv2DTranspose(64, 3, activation="relu", strides=1,
                               kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(48, 3, activation="relu", strides=1,
+    x = layers.Conv2DTranspose(48, 3, activation="relu", strides=2,
                               kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(32, 3, activation="relu", strides=2,
-                              kernel_regularizer=regularizer, padding="same")(x)
-    x = layers.Conv2DTranspose(16, 3, activation="relu", strides=1, 
+    x = layers.Conv2DTranspose(32, 3, activation="relu", strides=1,
                               kernel_regularizer=regularizer, padding="same")(x)
     output = layers.Conv2DTranspose(shape[2], 3, 
                                     activation="sigmoid", 

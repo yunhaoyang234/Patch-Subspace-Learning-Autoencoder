@@ -60,9 +60,10 @@ def main(args):
         if PRETRAIN != 0:
             if NUM_CLUSTER==1:
                 encoder, decoders = load_models('pretrained models/' + DATASET + '_single_filter/')
+                break
             elif NUM_CLUSTER == 4:
                 encoder, decoders = load_models('pretrained models/' + DATASET + '_multi_filter/')
-            break
+                break
         train = train_files[fb:fb+FILE_BATCH]
         clear_images = [load_celeb_images(train[i]) for i in range(FILE_BATCH)]
         clear_images = np.concatenate(clear_images, axis=0)
