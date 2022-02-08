@@ -104,28 +104,30 @@ def sidd_test_data(path, key, batch):
 '''
 PREPROCESSING: GENERATE TRAINGING AND VALIDATION DATA
 '''
-def gen_noise(images, x=100, y=50, z=150):
+def gen_global_noise(images):
     noise = []
     for img in images:
         noise_image = np.copy(img)
-        def get_random():
-            p = random.randint(0, x)
-            q = random.randint(0, z)
-            h = random.randint(y, z)
-            w = random.randint(y, x)
-            return p, q, h, w
+        noise_img = random_noise(noise_image, mode='gaussian',var=0.02)
+        noise_image = np.array(255*noise_img, dtype = 'uint8')
+        noise.append(noise_image)
+    return noise
 
-        p, q, h, w = get_random()
-        noise_img = random_noise(noise_image[p:p+w, q:q+h], mode='s&p',amount=0.2)
-        noise_image[p:p+w, q:q+h] = np.array(255*noise_img, dtype = 'uint8')
+def gen_noise(images):
+    noise = []
+    ht, wd = len(images[0]), len(images[0][0])
+    p, q, r, s = ht//10, ht//5, ht//3, ht//2
+    for img in images:
+        noise_image = np.copy(img)
 
-        p, q, h, w = get_random()
-        noise_img = random_noise(noise_image[p:p+w, q:q+h], mode='gaussian', mean=0.2)
-        noise_image[p:p+w, q:q+h] = np.array(255*noise_img, dtype = 'uint8')
+        noise_img = random_noise(noise_image[p:p+s, q:wd-p], mode='s&p',amount=0.05)
+        noise_image[p:p+s, q:wd-p] = np.array(255*noise_img, dtype = 'uint8')
 
-        p, q, h, w = get_random()
-        noise_img = random_noise(noise_image[p:p+w, q:q+h], mode='speckle', mean=0.2)
-        noise_image[p:p+w, q:q+h] = np.array(255*noise_img, dtype = 'uint8')
+        noise_img = random_noise(noise_image[q:, :wd-p], mode='poisson')
+        noise_image[q:, :wd-p] = np.array(255*noise_img, dtype = 'uint8')
+
+        noise_img = random_noise(noise_image[r:r+s, q:q+s], mode='speckle', mean=-0.1)
+        noise_image[r:r+s, q:q+s] = np.array(255*noise_img, dtype = 'uint8')
         noise.append(noise_image)
     return noise
 
@@ -208,17 +210,6 @@ def gen_train_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap):
         noise_images = np.concatenate([noise_images, blur_blocks])
     return clear_images[1:]/255, noise_images[1:]/255
 
-def gen_zurich_set(clear_imgs, blur_imgs, shape, block_size, num_block, overlap):
-    noise_images = np.expand_dims(np.zeros((shape[0]//2, shape[1]//2, 4)), 0)
-    clear_images = np.expand_dims(np.zeros(shape), 0)
-
-    for i in range(len(clear_imgs)):
-        blocks = divide_img(clear_imgs[i], block_size, num_block, overlap)
-        clear_images = np.concatenate([clear_images, blocks])
-        blur_blocks = divide_img(blur_imgs[i], block_size//2, num_block, overlap//2)
-        noise_images = np.concatenate([noise_images, blur_blocks])
-    return clear_images[1:]/255, noise_images[1:]
-
 '''
 DECODE AND RECONSTRUCT IMAGES
 '''
@@ -230,47 +221,66 @@ def cluster_latent(y, batch=10000):
             labels.append(np.argmax(j))
     return labels
 
-def decode_images(z, labels, decoders):
+def gen_clusters(imgs, labels, num_cluster):
+    clusters = []
+    for label in range(num_cluster):
+        clusters.append([])
+    for i in range(len(labels)):
+        clusters[labels[i]].append(imgs[i])
+    for i in range(num_cluster):
+        clusters[i] = np.array(clusters[i])
+    return clusters
+
+def clustering(noisy_patches, clean_patches, encoder, classifier, num_cluster, plot=False):
+    z = encoder(noisy_patches[:10000])
+    y, y_logits = classifier(z)
+    for i in range(10000, len(noisy_patches), 10000):
+        new_z = encoder(noisy_patches[i: i+10000])
+        new_y, _ = classifier(new_z)
+        z = np.concatenate([z, new_z], axis=0)
+        y = np.concatenate([y, new_y], axis=0)
+    labels = np.array(cluster_latent(y, 10000))
+
+    if plot:
+        pca =  decomposition.PCA(n_components=2)
+        x = pca.fit_transform(z)
+        colors = ['orange', 'blue', 'green', 'red', 'black', 'purple']
+        for n in range(num_cluster):
+          plt.scatter(x[labels==n, 0], x[labels==n, 1], s=5, c=colors[n], label ='Cluster'+str(n))
+        plt.show()
+    clus = gen_clusters(noisy_patches, labels, num_cluster)
+    label_clus = gen_clusters(clean_patches, labels, num_cluster)
+    return clus, label_clus
+
+def decode_images(x, encoder, classifier, decoders):
+    z = encoder.predict(x)
+    y,_ = classifier.predict(z)
     decoded_images = []
     decode = []
-    for decoder in decoders:
-        decode.append(decoder.predict(z))
-    for num in range(len(z)):
-        decode_img = decode[labels[num]][num]
+    for i in range(len(decoders)):
+        decode.append(decoders[i].predict(z))
+    for i in range(len(y)):
+        decode_img = decode[np.argmax(y[i])][i]
         decoded_images.append(decode_img)
     return decoded_images
 
-def reconstruct_image(z, y, decoders, block_per_image, width, height, block_size, overlap):
-    from train import cluster_latent
+def reconstruct_image(noise_blocks, encoder, classifier, decoders, 
+                      block_per_image, width, height, block_size, overlap):
     recons_images = []
-    labels = cluster_latent(y)
-    decoded_images = decode_images(z, labels, decoders)
+    decoded_images = decode_images(noise_blocks[:10000], encoder, classifier, decoders)
+    for i in range(10000, len(noise_blocks), 10000):
+        decoded_images = np.concatenate([decoded_images, 
+                                         decode_images(noise_blocks[i:i+10000], encoder, classifier, decoders)], 
+                                        axis=0)
+
     blocks = decoded_images[: block_per_image]
     image = merge_img(blocks, width, height, block_size, overlap)
-    recons_images = tf.convert_to_tensor([image], np.float32)
-
+    recons_images = np.array([image])
     for i in range(block_per_image, len(decoded_images), block_per_image):
         blocks = decoded_images[i: i+block_per_image]
         image = merge_img(blocks, width, height, block_size, overlap)
-        recons_images = tf.concat([recons_images, tf.convert_to_tensor([image], np.float32)], axis=0)
-    return recons_images
-
-'''
-SAVE AND LOAD MODEL
-'''
-def save_models(encoder, decoders, file_path):
-    encoder.save(cwd + file_path + 'encoder')
-    for i in range(len(decoders)):
-        decoders[i].save(cwd + file_path + 'decoder' + str(i))
-
-def load_models(file_path):
-    encoder = keras.models.load_model(cwd + file_path + 'encoder')
-    decoders = []
-    files = sorted(glob.glob(cwd + file_path + '*'))
-    for f in files:
-        if 'decoder' in f:
-            decoders.append(keras.models.load_model(f))
-    return encoder, decoders
+        recons_images = np.concatenate([recons_images, np.array([image])], axis=0)
+    return (recons_images*255).astype(np.uint8)
 
 '''
 PLOT IMAGES

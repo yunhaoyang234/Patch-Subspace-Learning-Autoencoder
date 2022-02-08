@@ -40,19 +40,32 @@ def main(args):
     '''
     Load Images
     '''
-    train_files = sorted(glob.glob(cwd + args.train_files_path + '*'))
-    decoders=[]
+    train_files = []
+    valid_files = []
+    for root_path, sub, files in os.walk(args.train_files_path):
+        contents = files
+        contents.sort()
+        for f in contents:
+            file_path = os.path.join(root_path,f)
+            if os.path.isfile(file_path) and "GT" in f:
+                train_files.append(file_path)
+            if os.path.isfile(file_path) and "NOISY" in f:
+                valid_files.append(file_path)
+    if len(train_files) != len(valid_files):
+        raise ValueError('Train and Validation file must have same length', len(train_files), len(valid_files))
+    decoders = []
 
     '''
     Train Network
     '''
     for fb in range(0, len(train_files), FILE_BATCH):
         train = train_files[fb:fb+FILE_BATCH]
-        clear_images = [load_celeb_images(train[i]) for i in range(FILE_BATCH)]
-        clear_images = np.concatenate(clear_images, axis=0)
-        noise_images = gen_noise(clear_images)
+        valid = valid_files[fb:fb+FILE_BATCH]
+        clear_images = crop_square(read_images(valid))
+        noise_images = crop_square(read_images(train))
         WIDTH = len(clear_images[0][0])
         HEIGHT = len(clear_images[0])
+        
         clear_images, noise_images = gen_train_set(clear_images, noise_images, SHAPE,
                                                    BLOCK_SIZE, NUM_BLOCK, OVERLAP)
 
@@ -63,19 +76,16 @@ def main(args):
     '''
     Evaluation
     '''
-    test_files = sorted(glob.glob(cwd + args.test_files_path + '*'))
-
     avg_psnr, avg_ssim, avg_uqi = 0, 0, 0
-
-    for fb in range(0, len(test_files), FILE_BATCH):
-        train = test_files[fb:fb+FILE_BATCH]
-        clear_images = [load_celeb_images(train[i]) for i in range(FILE_BATCH)]
-        clear_images = np.concatenate(clear_images, axis=0)
-        noise_images = gen_noise(clear_images)
+    BATCH = 4
+    NUM_BLOCK = 15
+    for i in range(BATCH):
+        clear_images = sidd_test_data(args.test_validation_files_path, 'ValidationGtBlocksSrgb', i)
+        test_images = np.array(clear_images)
+        noise_images = sidd_test_data(args.test_files_path, 'ValidationNoisyBlocksSrgb', i)
         WIDTH = len(clear_images[0][0])
         HEIGHT = len(clear_images[0])
 
-        test_images = np.array(clear_images)
         clear_images, noise_images = gen_train_set(clear_images, noise_images, SHAPE,
                                                    BLOCK_SIZE, NUM_BLOCK, OVERLAP)
 
@@ -87,9 +97,9 @@ def main(args):
         avg_uqi += quality_evaluation(recons_images, test_images, metric='UQI')
     print('***********************')
     print('Overall Results')
-    print('PSNR: ', avg_psnr/len(test_files)*FILE_BATCH)
-    print('SSIM: ', avg_ssim/len(test_files)*FILE_BATCH)
-    print('UQI: ', avg_uqi/len(test_files)*FILE_BATCH)
+    print('PSNR: ', avg_psnr/BATCH)
+    print('SSIM: ', avg_ssim/BATCH)
+    print('UQI: ', avg_uqi/BATCH)
     print('***********************')
 
 if __name__ == '__main__':
