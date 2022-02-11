@@ -8,7 +8,7 @@ Run
 GPU is required
 
 ## Datasets:
-- `CelebA` - 4GB. CelebA-HQ 256x256 dataset. Downloaded from [here](https://openaipublic.azureedge.net/glow-demo/data/celeba-tfr.tar)
+- `CelebA` - 4GB. CelebA-HQ 256x256 dataset. Downloaded from [here](https://openaipublic.azureedge.net/glow-demo/data/celeba-tfr.tar). The synthesized noise is added by calling gen_noise() and gen_global_noise() functions in [utils.py](https://github.com/yunhaoyang234/Patch-Subspace-Learning-Autoencoder/blob/master/utils.py)
 - `SIDD-Medium Dataset` - 12GB. Smartphone Image Denoising Dataset consists of 320 image pairs (noisy and ground-truth). Download from [here](https://www.eecs.yorku.ca/~kamel/sidd/dataset.php)
 
 Please put the decompressed datasets in the same directory with the code during experiments, otherwise please set **cwd** in utils.py to the file directory where the datasets locate at.
