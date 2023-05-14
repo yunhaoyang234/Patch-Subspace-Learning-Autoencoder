@@ -4,7 +4,8 @@ Code for reproducing results in **Learning Patch Subspaces on Autoencoders**.
 We present a specific patch-based, local subspace deep neural network that improves Camera ISP to be robust to heterogeneous artifacts (especially image denoising). We call our three-fold deep-trained model the Patch Subspace Learning Autoencoder (PSL-AE).
 The PSL-AE model does not make assumptions regarding uniform levels of image distortion. Instead, it first encodes patches extracted from noisy and clean image pairs, with different artifact types or distortion levels, by contrastive learning. Then, the patches of each image are encoded into corresponding soft clusters within their suitable latent sub-space, utilizing a prior mixture model. Furthermore, the decoders undergo training in an unsupervised manner, specifically trained for the image patches present in each cluster. The experiments highlight the adaptability and efficacy through enhanced heterogeneous filtering, both from synthesized artifacts but also realistic SIDD image pairs.
 
-![contrastive](https://github.com/yunhaoyang234/Patch-Subspace-Learning-Autoencoder/figures/architecture_contrastive.png)
+Patch-based self-supervised pretraining using contrastive learning:
+![contrastive](https://github.com/yunhaoyang234/Patch-Subspace-Learning-Autoencoder/blob/master/figures/architecture_contrastive.png)
 
 ## Requirements:
 See requirement.txt\
